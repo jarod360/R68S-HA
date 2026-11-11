@@ -1,0 +1,13 @@
+BOARD_ID=r68s
+BOARD_NAME="FastRhino R68S (experimental)"
+CHASSIS=embedded
+BOOTLOADER=uboot
+KERNEL_FILE=Image
+PARTITION_TABLE_TYPE=hybrid
+BOOT_SIZE=16M
+BOOT_SPL=true
+BOOT_SPL_SIZE=16M
+BOOT_ENV_SIZE=0x8000
+# Temporary image-selection compatibility setting; not official R68S support.
+SUPERVISOR_MACHINE=odroid-m1
+SUPERVISOR_ARCH=aarch64

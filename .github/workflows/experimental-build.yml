@@ -1,0 +1,72 @@
+name: R68S experimental HAOS build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Checkout pinned official HAOS source
+        run: |
+          git clone https://github.com/home-assistant/operating-system.git haos
+          git -C haos checkout --detach 945ba38d88e7e7d7321d42294b222b8deb2208d2
+          git -C haos submodule update --init --recursive
+
+      - name: Apply R68S board integration
+        run: bash scripts/prepare-haos.sh haos
+
+      - name: Prepare build space
+        run: |
+          sudo rm -rf /usr/local/lib/android/sdk/ndk /opt/hostedtoolcache/CodeQL
+          sudo mkdir -p /mnt/cache/dl /mnt/cache/cc /mnt/output
+          sudo chown -R "$(id -u):$(id -g)" /mnt/cache /mnt/output
+          df -h
+
+      - name: Build official HAOS builder container
+        run: docker build --tag haos-builder:r68s --file haos/Dockerfile haos
+
+      - name: Configure Buildroot
+        run: |
+          docker run --rm --privileged \
+            -e BUILDER_UID="$(id -u)" -e BUILDER_GID="$(id -g)" \
+            -v "$PWD/haos:/build" -v "/mnt/cache:/cache" -v "/mnt/output:/build/output" \
+            haos-builder:r68s make r68s-config
+
+      - name: Compile experimental image
+        run: |
+          docker run --rm --privileged \
+            -e BUILDER_UID="$(id -u)" -e BUILDER_GID="$(id -g)" \
+            -v "$PWD/haos:/build" -v "/mnt/cache:/cache" -v "/mnt/output:/build/output" \
+            haos-builder:r68s make
+
+      - name: Validate output presence and SHA256
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          images=(/mnt/output/images/haos_r68s-*.img.xz)
+          if [ "${#images[@]}" -ne 1 ]; then
+            echo "Expected exactly one R68S raw image; got ${#images[@]}" >&2
+            exit 1
+          fi
+          test -s "${images[0]}"
+          sha256sum "${images[0]}" | tee /mnt/output/images/SHA256SUMS-R68S-UNVERIFIED
+          echo "IMAGE_BUILD_ONLY=1: NOT TESTED ON R68S; DO NOT FLASH"
+
+      - name: Upload unverified build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: R68S-HAOS-UNVERIFIED-DO-NOT-FLASH
+          path: |
+            /mnt/output/images/haos_r68s-*.img.xz
+            /mnt/output/images/SHA256SUMS-R68S-UNVERIFIED
+          if-no-files-found: error
+          retention-days: 7
