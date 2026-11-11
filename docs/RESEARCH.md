@@ -19,6 +19,8 @@
 - **boot0/boot1**：eMMC 除用户区域以外可能存在硬件启动分区，需要实机确认；只备份 GPT 分区并不一定能恢复原始引导链。
 - **无显示屏和 SD 槽**：首启调试建议使用 3.3V UART（1500000 baud）；PC 的 Rockchip 恢复接口、Loader/Maskrom 必须在写盘前确认，不应套用 Hardkernel 的 Petitboot/SD 卡教程。
 
+- **SPL 读取扇区**：U-Boot v2026.04 的 Rockchip 默认 `CONFIG_SPL_MMC=y`，`SYS_MMCSD_RAW_MODE_U_BOOT_SECTOR=0x4000`（每扇区 512 字节，即 8MiB）。这与官方 HAOS `u-boot-rockchip.bin` 从 32KiB 写入、FIT 偏移 `SPL_PAD_TO=0x7f8000` 相匹配。现已在 R68S fragment 中显式钉住配置并添加编译后检查。即使静态偏移正确，仍需实机验证 U-Boot 能读 eMMC。
+
 ## 安全门槛
 
 1. 完成 GitHub Actions 云编译并检验 GPT；即便成功，依然只标 `UNVERIFIED-DO-NOT-FLASH`。
