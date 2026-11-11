@@ -49,11 +49,13 @@ bash R68S-HA/scripts/prepare-haos.sh haos
 4. **磁盘**：16GB eMMC 较紧张；后续优先考虑把 HAOS data partition 迁到 USB 3.0 SSD。
 5. **Supervisor/OS-Agent/OTA**：初始使用官方 ODROID-M1 容器机器标识只是启动验证兼容策略，不代表官方认可 R68S。最终应消除平台伪装并确认 RAUC 签名/更新渠道。
 
+核查记录：[docs/RESEARCH.md](docs/RESEARCH.md)。
+
 ## 当前状态
 
 - [x] 找到 Linux/R68S DTS、Armbian/LEDE 引导来源与官方 HAOS RK3568 基础
 - [x] 建立最小可复现的源码适配与实验 CI
-- [ ] 在 GitHub Actions 构建通过并核对产物分区、SHA256
+- [ ] 在 GitHub Actions 构建通过并核对产物 GPT、SHA256
 - [ ] 验证 R68S 4GB DDR loader / eMMC 启动链
 - [ ] 完成真实设备启动、双千兆/双 2.5G、USB 3.0 测试
 - [ ] 验证 Supervisor、备份与 RAUC A/B 回滚

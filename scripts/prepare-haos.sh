@@ -30,6 +30,8 @@ for file in boot-env.txt cmdline.txt haos-hook.sh image-spl-spl.cfg \
     cp "$SOURCE/$file" "$BOARD/$file"
 done
 cp "$REPO_ROOT/board/r68s/meta" "$BOARD/meta"
+# Headless RK3568 serial port for early boot diagnosis.
+printf 'console=ttyS2,1500000n8\n' > "$BOARD/cmdline.txt"
 cp "$REPO_ROOT/board/r68s/kernel.config" "$BOARD/kernel.config"
 cp "$REPO_ROOT/board/r68s/uboot.config" "$BOARD/uboot.config"
 cp "$REPO_ROOT"/patches/uboot/*.patch "$BOARD/patches/uboot/"

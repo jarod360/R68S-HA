@@ -1,6 +1,9 @@
 name: R68S experimental HAOS build
 
 on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/experimental-build.yml']
   workflow_dispatch:
 
 permissions:
@@ -58,6 +61,7 @@ jobs:
             exit 1
           fi
           test -s "${images[0]}"
+          python3 scripts/check-image-gpt.py "${images[0]}"
           sha256sum "${images[0]}" | tee /mnt/output/images/SHA256SUMS-R68S-UNVERIFIED
           echo "IMAGE_BUILD_ONLY=1: NOT TESTED ON R68S; DO NOT FLASH"
 
