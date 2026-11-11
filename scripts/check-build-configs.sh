@@ -37,4 +37,9 @@ check "$linux" 'CONFIG_DWMAC_ROCKCHIP=y'
 check "$linux" 'CONFIG_MMC_SDHCI_OF_DWCMSHC=y'
 check "$linux" 'CONFIG_PCIE_ROCKCHIP_DW_HOST=y'
 check "$linux" 'CONFIG_R8169=m'
+check "$linux" 'CONFIG_DW_WATCHDOG=y'
+fdtget="$out/host/bin/fdtget"
+test -x "$fdtget" || { echo "Missing host fdtget" >&2; exit 1; }
+wdt_status=$("$fdtget" -t s "$out/images/rk3568-fastrhino-r68s.dtb" /watchdog@fe600000 status)
+test "$wdt_status" = "okay" || { echo "R68S watchdog is disabled in compiled DTB" >&2; exit 1; }
 echo 'R68S_COMPILED_CONFIGS_VALID (build-level only; not a boot test)'

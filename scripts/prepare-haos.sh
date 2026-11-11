@@ -24,7 +24,7 @@ if [ -e "$BOARD" ] || [ -e "$CONFIG" ]; then
     exit 1
 fi
 
-mkdir -p "$BOARD/patches/uboot"
+mkdir -p "$BOARD/patches/uboot" "$BOARD/patches/linux"
 for file in boot-env.txt cmdline.txt haos-hook.sh image-spl-spl.cfg \
             partition-spl-spl.cfg uboot-boot.ush; do
     cp "$SOURCE/$file" "$BOARD/$file"
@@ -35,6 +35,7 @@ printf 'console=ttyS2,1500000n8\n' > "$BOARD/cmdline.txt"
 cp "$REPO_ROOT/board/r68s/kernel.config" "$BOARD/kernel.config"
 cp "$REPO_ROOT/board/r68s/uboot.config" "$BOARD/uboot.config"
 cp "$REPO_ROOT"/patches/uboot/*.patch "$BOARD/patches/uboot/"
+cp "$REPO_ROOT"/patches/linux/*.patch "$BOARD/patches/linux/"
 sed -i 's/rk3568-odroid-m1\.dtb/rk3568-fastrhino-r68s.dtb/g' "$BOARD/uboot-boot.ush"
 
 # Fast-fail on upstream layout changes instead of building an incompatible image.

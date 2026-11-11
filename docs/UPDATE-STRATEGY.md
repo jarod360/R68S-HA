@@ -53,6 +53,12 @@
 
 RAUC `compatible=haos-r68s` 可以阻止 `haos-odroid-m1` 误装，但**不能提供 R68S 官方 OTA 发布渠道**。在真正打通自己的版本服务和签名发布流程前，不要点击页面里的 Operating System 更新。Core、Supervisor 的普通容器更新仍可按原机制执行。
 
+## A/B 失败重启：硬件看门狗差异
+
+官方 HAOS 有 `systemd/system.conf.d/watchdog.conf`，配置 `RuntimeWatchdogSec=300` 和 `/dev/watchdog`；基础内核已有 `CONFIG_DW_WATCHDOG=y`。但 R68S 主线设备树的 RK3568 `wdt: watchdog@fe600000` 默认 `status=disabled`，官方 ODROID-M1 还在自身 kernel fragment 显式禁用了此驱动。
+
+R68S 使用单独 Linux DTS 最小补丁启用 `&wdt { status = "okay"; };`，并在编译后检查驱动与最终 DTB。**这不等于看门狗实机已通过**；需检查 systemd 正常喂狗、300 秒失去喂狗能否自动重启、B 槽失败是否按预期重新回到 A 槽。不能为了测试未经准备故意让真实系统死机。
+
 ## 仍未完全解决的风险（必须标注）
 
 - **共用 DTB**：本方案保留共享 FAT 分区中的旧 R68S 设备树。如果未来官方 HAOS 把 Linux 6.18 升到另一主版本，新内核可能不能用旧 DTB；这种情况要先实机验证并设计“按 A/B 槽选择 DTB”的第二阶段，不能直接推送 OTA。

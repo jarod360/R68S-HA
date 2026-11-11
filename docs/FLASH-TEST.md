@@ -55,6 +55,7 @@ dmesg 2>/dev/null | grep -Ei 'mmc|rk3568|pcie|r8169|rtl8125|dwmac|gmac|usb' | ta
 - 首次只连接一个**千兆**网口接 DHCP 局域网，排除双 2.5G PCIe 的影响；确认开机、串口、eMMC、IP、DHCP，再检查其他网口。
 - HAOS 在首启可能需要联网下载 Core，不能以“IP 已获得但 8123 尚未打开”直接判定引导失败。
 - 记录 4GB 内存是否完整识别、eMMC 容量/分区、两个千兆和两个 2.5G 的链路协商、USB 3.0 连接稳定性、Supervisor / OS Agent 状态。
+- 首启在系统内核对 `/dev/watchdog` 是否存在、`systemd-analyze cat-config systemd/system.conf` 是否生效，并观察日志有无看门狗告警。**先不要主动触发设备死机测试**，待回滚/救砖能力验证后再测试。
 - 固件确认能启动后，也**不要点击系统更新/OTA**：目前固件目标是 `r68s`，但 Supervisor 容器选择暂时映射到 `odroid-m1`。未经自己签名和 RAUC 回滚验证的升级包不能用于该设备。
 - 任何早期引导异常或反复重启，应停止刷写和反复重试，保留串口日志与失败步骤。
 
