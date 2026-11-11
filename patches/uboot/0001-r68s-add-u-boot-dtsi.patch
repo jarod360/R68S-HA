@@ -2,7 +2,7 @@ diff --git a/arch/arm/dts/rk3568-fastrhino-r68s-u-boot.dtsi b/arch/arm/dts/rk356
 new file mode 100644
 --- /dev/null
 +++ b/arch/arm/dts/rk3568-fastrhino-r68s-u-boot.dtsi
-@@ -0,0 +1,10 @@
+@@ -0,0 +1,9 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
 +
 +#include "rk356x-u-boot.dtsi"

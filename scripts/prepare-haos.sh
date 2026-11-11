@@ -41,7 +41,6 @@ cp "$EXT/configs/odroid_m1_defconfig" "$CONFIG"
 sed -i \
     -e 's|board/hardkernel/odroid-m1|board/fastrhino/r68s|g' \
     -e 's|BR2_LINUX_KERNEL_INTREE_DTS_NAME="rockchip/rk3568-odroid-m1"|BR2_LINUX_KERNEL_INTREE_DTS_NAME="rockchip/rk3568-fastrhino-r68s"|' \
-    -e 's|BR2_TARGET_UBOOT_BOARD_DEFCONFIG="odroid-m1-rk3568"|BR2_TARGET_UBOOT_BOARD_DEFCONFIG="odroid-m1-rk3568"|' \
     "$CONFIG"
 
 # RTL8125B PCIe is already supported by Linux r8169 (module).

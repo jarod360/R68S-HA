@@ -25,6 +25,9 @@ jobs:
           git -C haos checkout --detach 945ba38d88e7e7d7321d42294b222b8deb2208d2
           git -C haos submodule update --init --recursive
 
+      - name: Validate U-Boot patch syntax before long builds
+        run: git apply --numstat patches/uboot/0001-r68s-add-u-boot-dtsi.patch
+
       - name: Apply R68S board integration
         run: bash scripts/prepare-haos.sh haos
 
