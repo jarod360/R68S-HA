@@ -3,7 +3,8 @@ name: R68S experimental HAOS build
 on:
   push:
     branches: [main]
-    paths: ['.github/workflows/experimental-build.yml']
+    paths:
+      - '.github/workflows/experimental-build.yml'
   workflow_dispatch:
 
 permissions:

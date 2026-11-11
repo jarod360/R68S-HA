@@ -2,7 +2,7 @@ diff --git a/arch/arm/dts/rk3568-fastrhino-r68s-u-boot.dtsi b/arch/arm/dts/rk356
 new file mode 100644
 --- /dev/null
 +++ b/arch/arm/dts/rk3568-fastrhino-r68s-u-boot.dtsi
-@@ -0,0 +1,16 @@
+@@ -0,0 +1,10 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
 +
 +#include "rk356x-u-boot.dtsi"
@@ -11,11 +11,4 @@ new file mode 100644
 +	chosen {
 +		u-boot,spl-boot-order = "same-as-spl", &sdhci;
 +	};
-+};
-+
-+&usb_host0_xhci {
-+	dr_mode = "peripheral";
-+	maximum-speed = "high-speed";
-+	phys = <&usb2phy0_otg>;
-+	phy-names = "usb2-phy";
 +};

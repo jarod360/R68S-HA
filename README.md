@@ -1,32 +1,36 @@
-# R68S-HA — FastRhino R68S Home Assistant OS (EXPERIMENTAL)
+# R68S-HA — FastRhino R68S Native Home Assistant OS
 
-> **未验证 / NOT FLASHABLE YET.** 本仓库目前用于研究和构建 R68S 原生 HAOS 候选镜像。构建成功不代表可启动，不代表适合写入 eMMC。尚未完成 R68S 4GB 实机启动、网口、USB、RAUC A/B 更新及恢复测试。**请勿直接刷入现有机器。**
+**当前阶段：实验性适配，不能直接刷机。**
 
-## 目标硬件
+## 目标设备
 
-- FastRhino R68S / Rockchip RK3568 / 4GB RAM / 16GB eMMC
-- 无 TF/SD 卡槽；有 USB 3.0
-- 原生 Home Assistant Operating System（Buildroot + Supervisor + Docker + OS Agent），**不是 Armbian + Home Assistant Container**
+- FastRhino R68S / RK3568 / **4GB RAM + 16GB eMMC**
+- **没有 SD 卡槽**；支持 USB 3.0
+- **原生 HAOS**（Buildroot、Supervisor、OS Agent、Docker 和 RAUC），不是普通 Linux 下的 Container 安装
 
-## 已核实的上游基础
+## 唯一移植基础
 
-- [Home Assistant OS 官方源码](https://github.com/home-assistant/operating-system)：ODROID-M1 / RK3568 Buildroot 配置、HAOS 分区和 RAUC A/B 引导。
-- [Linux 主线 R68S DTS](https://github.com/torvalds/linux/blob/master/arch/arm64/boot/dts/rockchip/rk3568-fastrhino-r68s.dts)：R68S 专用设备树已经存在。
-- [U-Boot 主线 R66S 配置](https://github.com/u-boot/u-boot/blob/master/configs/fastrhino-r66s-rk3568_defconfig)：作为 RK3568 FastRhino SPL 起点。**R68S 的 eMMC 引导配置仍需验证。**
-- [LEDE R68S U-Boot 补丁](https://github.com/coolsnowwolf/lede/blob/master/package/boot/uboot-rockchip/patches/311-rockchip-rk3568-Add-support-for-fastrhino-r6xs.patch)：提供 R68S eMMC 和 USB OTG 差异参考。
-- [SmartElec rockchip-armbian](https://github.com/SmartElec/rockchip-armbian)：提供 R68S 相关构建/启动资料，并包含 `build-armbian/u-boot/r68s/bootloader.bin`。这是预编译文件，**未用于本项目，未验证来源/重分发许可**。
-- [iStoreOS R68S 板级配置](https://github.com/istoreos/istoreos/blob/main/target/linux/rockchip/dts/rk3568/rk3568-fastrhino-r68s.dts)。
+1. **[官方 Home Assistant OS — ODROID-M1 RK3568](https://github.com/home-assistant/operating-system/tree/dev/buildroot-external/board/hardkernel/odroid-m1)**：继承 Buildroot、HAOS 分区、引导逻辑、RAUC 和系统更新。
+2. **[Linux 主线 R68S DTS](https://github.com/torvalds/linux/blob/v6.18/arch/arm64/boot/dts/rockchip/rk3568-fastrhino-r68s.dts)**：直接编译适用于 R68S 的主线设备树。
+3. **[U-Boot 主线 v2026.04](https://github.com/u-boot/u-boot/tree/v2026.04)**：以 ODROID-M1 的 RK3568 配置为基础，禁用 M1 的 SPI 引导模式，采用 R68S eMMC 启动并使用主线 DTS。
 
-## 仓库结构
+**不使用第三方 Linux 内核、外部驱动或预编译 Bootloader。**
 
-- `scripts/prepare-haos.sh`：把最小 R68S 变更应用到**固定 SHA** 的 HAOS 源码（不会复制整套上游源码）。
-- `board/r68s/`：HAOS 元数据、内核与 U-Boot config fragment。
-- `patches/uboot/`：R68S eMMC 启动优先级差异补丁。
-- `.github/workflows/experimental-build.yml`：手动触发云构建，结果仅作为实验 artifacts。
+## 最小差异
 
-## 构建
+- `board/r68s/kernel.config`：补足 RK3568 GMAC、eMMC 内建驱动；2.5G PCIe 使用官方 HAOS 内置 `r8169`。
+- `board/r68s/uboot.config`：将 ODROID-M1 U-Boot 的 SPI 启动改为 R68S 所需的 eMMC 模式，切换到通用 RK3568 板级初始化，使用 R68S DTS。
+- `patches/uboot/`：只补充 R68S SPL 的 eMMC 启动顺序；不覆盖主线驱动。
+- `scripts/prepare-haos.sh`：对固定版本的官方 HAOS 进行板级适配，保留官方磁盘布局。
+- `scripts/check-image-gpt.py`：编译后验证 GPT 结构、CRC、分区清单、标称 16GB 容量。
 
-Linux + Git + Docker 环境；建议内存与磁盘较充足的 GitHub Actions runner 或专用 Linux 构建机。Windows 开发本地文件请放在 `D:\Codex\R68S-HA`，不要在 C 盘创建项目文件。
+## 构建与验证
+
+GitHub 仓库：[jarod360/R68S-HA](https://github.com/jarod360/R68S-HA)
+
+工作流：[R68S experimental HAOS build](https://github.com/jarod360/R68S-HA/actions/workflows/experimental-build.yml)。完成后会在 Actions Artifacts 出现 `R68S-HAOS-UNVERIFIED-DO-NOT-FLASH`，**仅表示构建候选产物，绝非可直接刷机证明**。
+
+本地源码与构建请放在 Windows 的 `D:\Codex\R68S-HA`，不要将项目文件写到 C 盘。
 
 ```bash
 git clone https://github.com/jarod360/R68S-HA.git
@@ -34,33 +38,17 @@ git clone https://github.com/home-assistant/operating-system.git haos
 git -C haos checkout 945ba38d88e7e7d7321d42294b222b8deb2208d2
 git -C haos submodule update --init --recursive
 bash R68S-HA/scripts/prepare-haos.sh haos
-# 配好 HAOS 官方 Docker 构建环境后：
-# make -C haos r68s-config
-# make -C haos
+# 使用 HAOS 官方 Docker builder 进行 make r68s-config 与 make 编译
 ```
 
-或者到 GitHub Actions 手动运行 `R68S experimental HAOS build`。CI 仅构建候选镜像，不自动发布 Release，不自动刷机。
+## 已知风险
 
-## 技术风险与验证门槛
+- R68S 4GB 上曾有其他 OS 成功运行的实机经历，表明硬件可用；**但不能证明 ODROID-M1 的 DDR TPL 与 R68S 兼容**。
+- 必须验证 BootROM、DDR 初始化、SPL、U-Boot、eMMC 和完整 HAOS A/B 分区启动链。
+- 两个千兆及两个 2.5G 网口、USB 3.0、Supervisor、OS Agent、RAUC 升级/回滚仍需实机验证。
+- 固件测试前必须备份整块 eMMC，并确认 Recovery/Maskrom 恢复路径。
+- 默认映射到 `odroid-m1` Supervisor 机器标识属于临时实验兼容方案，**不是官方 R68S 支持**。
 
-1. **SPL/TPL DDR 初始化**：R68S 4GB 机器的内存初始化与现成 ODROID-M1/R66S 的 Rockchip blob 未证实兼容；该项不验证，**禁止刷机**。
-2. **引导与分区**：HAOS 采用 SPL + GPT + A/B RAUC；要验证 eMMC boot ROM 与分区偏移、Recovery/Maskrom 救援，不得把 OpenWrt 的 sysupgrade 当作 HAOS 整盘写入工具。
-3. **网络**：官方 HAOS 内核已有 PCIe `r8169`（包含 RTL8125B 支持），本项目额外启用 `BR2_PACKAGE_LINUX_FIRMWARE_RTL_8169`，补齐 `rtl_nic/rtl8125b-2.fw`；四端口枚举和 PHY 时序仍需实机测试。
-4. **磁盘**：16GB eMMC 较紧张；后续优先考虑把 HAOS data partition 迁到 USB 3.0 SSD。
-5. **Supervisor/OS-Agent/OTA**：初始使用官方 ODROID-M1 容器机器标识只是启动验证兼容策略，不代表官方认可 R68S。最终应消除平台伪装并确认 RAUC 签名/更新渠道。
+核查与验证日志见 [docs/RESEARCH.md](docs/RESEARCH.md)。
 
-核查记录：[docs/RESEARCH.md](docs/RESEARCH.md)。
-
-已按官方 ODROID-M1 的方式精简适配：保留内核自带的 `r8169` 模块，仅补充 RTL8125B 固件包和 R68S 的 eMMC/GMAC 配置。
-
-## 当前状态
-
-- [x] 找到 Linux/R68S DTS、Armbian/LEDE 引导来源与官方 HAOS RK3568 基础
-- [x] 建立最小可复现的源码适配与实验 CI
-- [ ] 在 GitHub Actions 构建通过并核对产物 GPT、SHA256
-- [ ] 验证 R68S 4GB DDR loader / eMMC 启动链
-- [ ] 完成真实设备启动、双千兆/双 2.5G、USB 3.0 测试
-- [ ] 验证 Supervisor、备份与 RAUC A/B 回滚
-- [ ] 经过恢复方案演练后才发布可刷机测试版
-
-**本仓库不会在没有实机验证之前把产物标成“可直接刷机”。**
+**状态：源码适配及自动构建配置已提交；尚无实机测试通过的镜像。**

@@ -41,7 +41,7 @@ cp "$EXT/configs/odroid_m1_defconfig" "$CONFIG"
 sed -i \
     -e 's|board/hardkernel/odroid-m1|board/fastrhino/r68s|g' \
     -e 's|BR2_LINUX_KERNEL_INTREE_DTS_NAME="rockchip/rk3568-odroid-m1"|BR2_LINUX_KERNEL_INTREE_DTS_NAME="rockchip/rk3568-fastrhino-r68s"|' \
-    -e 's|BR2_TARGET_UBOOT_BOARD_DEFCONFIG="odroid-m1-rk3568"|BR2_TARGET_UBOOT_BOARD_DEFCONFIG="fastrhino-r66s-rk3568"|' \
+    -e 's|BR2_TARGET_UBOOT_BOARD_DEFCONFIG="odroid-m1-rk3568"|BR2_TARGET_UBOOT_BOARD_DEFCONFIG="odroid-m1-rk3568"|' \
     "$CONFIG"
 
 # RTL8125B PCIe is already supported by Linux r8169 (module).
@@ -50,7 +50,9 @@ printf '\nBR2_PACKAGE_LINUX_FIRMWARE_RTL_8169=y\n' >> "$CONFIG"
 
 grep -Fq 'BR2_PACKAGE_LINUX_FIRMWARE_RTL_8169=y' "$CONFIG"
 grep -Fq 'BR2_LINUX_KERNEL_INTREE_DTS_NAME="rockchip/rk3568-fastrhino-r68s"' "$CONFIG"
-grep -Fq 'BR2_TARGET_UBOOT_BOARD_DEFCONFIG="fastrhino-r66s-rk3568"' "$CONFIG"
+grep -Fq 'BR2_TARGET_UBOOT_BOARD_DEFCONFIG="odroid-m1-rk3568"' "$CONFIG"
+grep -Fq '# CONFIG_ROCKCHIP_SPI_IMAGE is not set' "$BOARD/uboot.config"
+grep -Fq 'CONFIG_TARGET_EVB_RK3568=y' "$BOARD/uboot.config"
 grep -Fq 'setenv fdtfile rk3568-fastrhino-r68s.dtb' "$BOARD/uboot-boot.ush"
 grep -Fq 'BOARD_ID=r68s' "$BOARD/meta"
 

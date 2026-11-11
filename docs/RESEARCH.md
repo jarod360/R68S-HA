@@ -1,47 +1,28 @@
-# R68S-HA 技术核查（2026-11-12）
+# R68S-HA：官方 ODROID-M1 基础的最小移植研究
 
-## 已核实的代码基础
+更新日期：2026-11-12。
 
-- **Linux v6.18** 包含 `rk3568-fastrhino-r68s.dts`，R68S 的 `&sdhci` 描述 8-bit eMMC、两个 GMAC PHY；共用 `rk3568-fastrhino-r66s.dtsi` 提供 PCIe 与 USB 配置。
-- **R68S 4GB/16GB 型号确实存在**，双 RTL8125BG 2.5G PCIe 网卡、双 RTL8211F 千兆 PHY；不是仅有 1GB/2GB 版本。
-- **HAOS 官方 ODROID-M1 构建目标**同为 RK3568，Buildroot + Supervisor + OS Agent + RAUC A/B 分区的体系可复用。
-- **U-Boot v2026.04** 有 R66S defconfig 和 R68S 的 Linux DTS，但未找到完整 R68S defconfig。当前使用 R66S 配置 + R68S eMMC/DTS fragment + U-Boot DTS 补丁。
-- **Armbian** 有 R68S 专用 `build-armbian/u-boot/r68s/bootloader.bin`，但该预编译文件的 DDR 4GB 初始化能力、许可及 HAOS 分区兼容性没有核实，尚未纳入构建。
+## 事实与推断
 
-## 与官方 ODROID-M1 的最小驱动差异（进一步核实）
+- **事实**：官方 HAOS `buildroot-external/configs/odroid_m1_defconfig` 是 RK3568 系统，包含 Buildroot、RAUC A/B、Docker、Supervisor 和 OS Agent。
+- **事实**：Linux v6.18 包含 `rk3568-fastrhino-r68s.dts`，描述 R68S eMMC、双 GMAC，并经共用 DTSI 配置 PCIe、USB 等控制器。
+- **事实**：官方 HAOS RK3568 内核已有 `CONFIG_R8169=m`、PCIe 驱动及 Realtek PHY 驱动；Buildroot 有 `BR2_PACKAGE_LINUX_FIRMWARE_RTL_8169`，用以安装有线网卡固件。
+- **事实**：U-Boot v2026.04 的 `odroid-m1-rk3568_defconfig` 默认 `CONFIG_ROCKCHIP_SPI_IMAGE=y`；R68S 需要从 eMMC 进入 SPL。因此不能把 M1 的固件直接写入 R68S。
+- **移植选择**：继续用官方 M1 作为 HAOS/U-Boot defconfig 起点；使用 fragment 关闭 SPI image，选择通用 RK3568 board 初始化并编译 R68S DTS；新增小补丁让 SPL 优先寻找 `sdhci`。
+- **事实（用户实机经历）**：这台 R68S 曾正常运行过飞牛 OS，提供硬件、eMMC 可启动的间接证据。
+- **未验证**：上述 ODROID-M1 改造的 U-Boot 是否能够初始化 4GB RAM、读取 R68S eMMC 并启动 Linux。
 
-经核对 HAOS 固定上游提交 `945ba38d...` 对应的 Buildroot 子模块 `5c344b3...`：
+## 安全门槛
 
-- 官方内核已经设置 `CONFIG_R8169=m`、`CONFIG_PCIE_ROCKCHIP_DW_HOST=y`、`CONFIG_STMMAC_ETH=y`；Linux 6.18 `drivers/net/ethernet/realtek/r8169_main.c` 包含 RTL8125B 和 PCI ID `0x8125`。**不需要第三方 r8125 驱动**。
-- 官方 ODROID-M1 的 `BR2_PACKAGE_LINUX_FIRMWARE_RTL_81XX=y` 主要包含 `rtlwifi/` 无线固件，不是 RTL8125B 的以太网固件。
-- Linux `r8169` 可能请求 `rtl_nic/rtl8125b-2.fw`。Buildroot `BR2_PACKAGE_LINUX_FIRMWARE_RTL_8169=y` 恰好会安装该文件（以及同系列 Realtek 有线固件）。**因此这是 R68S 应补充的构建项**。
-- 内核保留 `CONFIG_R8169=m`（官方模块形式），只用最小 fragment 启用 `CONFIG_DWMAC_ROCKCHIP=y`（双千兆 GMAC）并将 `CONFIG_MMC_SDHCI_OF_DWCMSHC` 从 `m` 改为 `y`（从 eMMC 直接挂载根文件系统）。
-- U-Boot 配置只保留 R68S DTS 与 eMMC SDHCI 差异，不额外启用网络引导、USB 设备模拟等非必要项。仅修正内核不代表 DDR/TPL 或 eMMC SPL 已验证。
+1. 完成 GitHub Actions 云编译并检验 GPT；即便成功，依然只标 `UNVERIFIED-DO-NOT-FLASH`。
+2. 验证 Rockchip 官方 DDR TPL blob 是否兼容 R68S 4GB LPDDR4；必要时需正确的 R68S DDR 初始化源码或可信 blob，不能猜测。
+3. 在刷机前离机备份现有 16GB eMMC，并确认 Recovery/Maskrom 恢复可用。
+4. 实机依次验证 DDR/SPL、U-Boot/eMMC、内核、4 个网口、USB 3.0、Supervisor、OS Agent、RAUC 更新/回滚。
+5. 长期使用可考虑 USB 3.0 外置 SSD 作为 HAOS data disk，不能把“USB 3.0 可用”等同“USB 启动已支持”。
 
-代码来源：
-- https://github.com/torvalds/linux/blob/v6.18/drivers/net/ethernet/realtek/r8169_main.c
-- https://github.com/home-assistant/buildroot/blob/5c344b3789e3f6d620cf11ffab60e522a875cc79/package/linux-firmware/linux-firmware.mk
-- https://github.com/home-assistant/operating-system/blob/945ba38d88e7e7d7321d42294b222b8deb2208d2/buildroot-external/configs/odroid_m1_defconfig
+## 参考（仅使用官方项目和主线）
 
-## 技术难点与验收标准
-
-1. **DDR TPL**：HAOS ODROID-M1 配置沿用 Rockchip DDR blob，不能假定 4GB R68S 初始化一定成功；这是首要实机风险。
-2. **eMMC / 引导**：R68S 没有 SD 卡槽，必须保证 BootROM → TPL/SPL → U-Boot → GPT → HAOS A/B；不能直接采用 OpenWrt `sysupgrade` 格式和升级方法。
-3. **网卡**：Linux 内核已经有 STMMAC、R8169 等驱动，但仍需检查两个千兆及两个 2.5G 的枚举、复位和吞吐。
-4. **存储**：16GB eMMC 可尝试引导，但 HAOS 长期数据需要空间；以后可选择外接 USB 3.0 SSD 迁移数据盘，不等于 USB 启动。
-5. **OTA**：使用 `odroid-m1` Supervisor 机器标识仅为构建阶段兼容性策略；不能声明得到官方 R68S 支持。必须另测 RAUC 签名、更新和回滚。
-
-## 构建检查新增内容
-
-- `scripts/prepare-haos.sh` 固定上游提交，启用 `console=ttyS2,1500000n8` 串口日志。
-- `scripts/check-image-gpt.py` 检查 GPT/MBR、CRC、HAOS 分区名称和镜像容量。
-- CI artifact 标注 `UNVERIFIED-DO-NOT-FLASH`。**通过以上检查仅代表分区结构合理，不代表可刷机。**
-
-## 参考
-
-- https://github.com/torvalds/linux/blob/v6.18/arch/arm64/boot/dts/rockchip/rk3568-fastrhino-r68s.dts
-- https://github.com/torvalds/linux/blob/v6.18/arch/arm64/boot/dts/rockchip/rk3568-fastrhino-r66s.dtsi
-- https://github.com/u-boot/u-boot/blob/v2026.04/configs/fastrhino-r66s-rk3568_defconfig
-- https://github.com/SmartElec/rockchip-armbian/tree/main/build-armbian/u-boot/r68s
-- https://github.com/home-assistant/operating-system/tree/dev/buildroot-external/board/hardkernel/odroid-m1
-- https://contributors.home-assistant.io/os/operating-system/partitions/
+- [Home Assistant OS 官方源码](https://github.com/home-assistant/operating-system)
+- [ODROID-M1 官方 HAOS 板级配置](https://github.com/home-assistant/operating-system/tree/dev/buildroot-external/board/hardkernel/odroid-m1)
+- [U-Boot v2026.04 的 ODROID-M1 配置](https://github.com/u-boot/u-boot/blob/v2026.04/configs/odroid-m1-rk3568_defconfig)
+- [Linux v6.18 的 R68S 设备树](https://github.com/torvalds/linux/blob/v6.18/arch/arm64/boot/dts/rockchip/rk3568-fastrhino-r68s.dts)
