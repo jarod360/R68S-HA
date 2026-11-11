@@ -101,7 +101,12 @@ jobs:
           fi
           test -s "${images[0]}"
           sh scripts/check-build-configs.sh /mnt/output
-          test -s /mnt/output/images/haos_r68s-*.raucb
+          bundles=(/mnt/output/images/haos_r68s-*.raucb)
+          test "${#bundles[@]}" -eq 1
+          python3 scripts/check-safe-ota-bundle.py "${bundles[0]}" \
+            /mnt/output/host/bin/rauc \
+            /mnt/output/target/etc/rauc/keyring.pem \
+            /mnt/output/target/etc/rauc/system.conf
           python3 scripts/check-image-gpt.py "${images[0]}"
           sha256sum "${images[0]}" | tee /mnt/output/images/SHA256SUMS-R68S-UNVERIFIED
           echo "IMAGE_BUILD_ONLY=1: NOT TESTED ON R68S; DO NOT FLASH"
