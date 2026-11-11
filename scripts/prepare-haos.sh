@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-EXPECTED_HAOS_SHA="945ba38d88e7e7d7321d42294b222b8deb2208d2"
-if [ "$#" -ne 1 ]; then
-    echo "Usage: bash scripts/prepare-haos.sh /path/to/haos" >&2
+EXPECTED_HAOS_SHA="${2:-945ba38d88e7e7d7321d42294b222b8deb2208d2}"
+if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
+    echo "Usage: bash scripts/prepare-haos.sh /path/to/haos [expected-official-commit-sha]" >&2
     exit 2
 fi
 
@@ -37,6 +37,17 @@ cp "$REPO_ROOT/board/r68s/uboot.config" "$BOARD/uboot.config"
 cp "$REPO_ROOT"/patches/uboot/*.patch "$BOARD/patches/uboot/"
 sed -i 's/rk3568-odroid-m1\.dtb/rk3568-fastrhino-r68s.dtb/g' "$BOARD/uboot-boot.ush"
 
+# Fast-fail on upstream layout changes instead of building an incompatible image.
+for expected in \
+  'BR2_LINUX_KERNEL_INTREE_DTS_NAME="rockchip/rk3568-odroid-m1"' \
+  'BR2_TARGET_UBOOT_BOARD_DEFCONFIG="odroid-m1-rk3568"' \
+  'BR2_PACKAGE_HASSIO_MACHINE="odroid-m1"'; do
+    if [ "$(grep -Fxc "$expected" "$EXT/configs/odroid_m1_defconfig")" -ne 1 ]; then
+        echo "Official HAOS board contract changed: $expected" >&2
+        exit 1
+    fi
+done
+
 cp "$EXT/configs/odroid_m1_defconfig" "$CONFIG"
 sed -i \
     -e 's|board/hardkernel/odroid-m1|board/fastrhino/r68s|g' \
@@ -54,6 +65,10 @@ grep -Fq '# CONFIG_ROCKCHIP_SPI_IMAGE is not set' "$BOARD/uboot.config"
 grep -Fq 'CONFIG_TARGET_EVB_RK3568=y' "$BOARD/uboot.config"
 grep -Fq 'setenv fdtfile rk3568-fastrhino-r68s.dtb' "$BOARD/uboot-boot.ush"
 grep -Fq 'BOARD_ID=r68s' "$BOARD/meta"
+
+# Keep the full first-flash image, but never ship shared bootloader/boot files
+# inside an Operating System A/B update bundle.
+python3 "$REPO_ROOT/scripts/configure-safe-ota.py" "$EXT" "$BOARD"
 
 echo "R68S_EXPERIMENTAL_SOURCE_READY=1"
 echo "WARNING: no R68S 4GB boot-chain or flashing validation has been completed"

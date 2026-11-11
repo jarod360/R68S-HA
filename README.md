@@ -49,6 +49,6 @@ bash R68S-HA/scripts/prepare-haos.sh haos
 - 固件测试前必须备份整块 eMMC，并确认 Recovery/Maskrom 恢复路径。
 - 默认映射到 `odroid-m1` Supervisor 机器标识属于临时实验兼容方案，**不是官方 R68S 支持**。
 
-核查与验证日志见 [docs/RESEARCH.md](docs/RESEARCH.md)；明早刷机准备及停止条件见 [docs/FLASH-TEST.md](docs/FLASH-TEST.md)。
+核查与验证日志见 [docs/RESEARCH.md](docs/RESEARCH.md)；[docs/FLASH-TEST.md](docs/FLASH-TEST.md) 是首次实机清单；[docs/UPDATE-STRATEGY.md](docs/UPDATE-STRATEGY.md) 说明持续适配官方 HAOS、A/B 更新和长期签名策略。
 
 **状态：源码适配及自动构建配置已提交；尚无实机测试通过的镜像。**

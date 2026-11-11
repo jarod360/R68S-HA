@@ -6,6 +6,11 @@ on:
     paths:
       - '.github/workflows/experimental-build.yml'
   workflow_dispatch:
+    inputs:
+      haos_sha:
+        description: 'Reviewed 40-character commit SHA from official HAOS'
+        required: true
+        default: '945ba38d88e7e7d7321d42294b222b8deb2208d2'
 
 permissions:
   contents: read
@@ -14,6 +19,11 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     timeout-minutes: 360
+    concurrency:
+      group: r68s-haos-build
+      cancel-in-progress: false
+    env:
+      HAOS_SHA: ${{ inputs.haos_sha || '945ba38d88e7e7d7321d42294b222b8deb2208d2' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -22,14 +32,39 @@ jobs:
       - name: Checkout pinned official HAOS source
         run: |
           git clone https://github.com/home-assistant/operating-system.git haos
-          git -C haos checkout --detach 945ba38d88e7e7d7321d42294b222b8deb2208d2
+          [[ "$HAOS_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "Use official HAOS commit SHA only"; exit 1; }
+          git -C haos checkout --detach "$HAOS_SHA"
           git -C haos submodule update --init --recursive
 
       - name: Validate U-Boot patch syntax before long builds
         run: git apply --numstat patches/uboot/0001-r68s-add-u-boot-dtsi.patch
 
       - name: Apply R68S board integration
-        run: bash scripts/prepare-haos.sh haos
+        run: bash scripts/prepare-haos.sh haos "$HAOS_SHA"
+
+      - name: Install persistent RAUC signing key if configured
+        env:
+          R68S_KEY_B64: ${{ secrets.R68S_RAUC_KEY_PEM_B64 }}
+          R68S_CERT_B64: ${{ secrets.R68S_RAUC_CERT_PEM_B64 }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$R68S_KEY_B64" && -z "$R68S_CERT_B64" ]]; then
+            echo "OTA_SIGNING=DEVELOPMENT_EPHEMERAL: do not use this image for long-term OTA"
+            echo "OTA_SIGNING_READY=false" >> "$GITHUB_ENV"
+          elif [[ -z "$R68S_KEY_B64" || -z "$R68S_CERT_B64" ]]; then
+            echo "Both R68S_RAUC_KEY_PEM_B64 and R68S_RAUC_CERT_PEM_B64 are required" >&2
+            exit 1
+          else
+            umask 077
+            printf '%s' "$R68S_KEY_B64" | base64 --decode > haos/key.pem
+            printf '%s' "$R68S_CERT_B64" | base64 --decode > haos/cert.pem
+            openssl x509 -in haos/cert.pem -checkend 2592000 -noout
+            key_pub="$(openssl pkey -in haos/key.pem -pubout | sha256sum | cut -d' ' -f1)"
+            cert_pub="$(openssl x509 -in haos/cert.pem -pubkey -noout | sha256sum | cut -d' ' -f1)"
+            test "$key_pub" = "$cert_pub" || { echo "Key and certificate mismatch" >&2; exit 1; }
+            echo "OTA_SIGNING_READY=true" >> "$GITHUB_ENV"
+            echo "OTA_SIGNING=PERSISTENT"
+          fi
 
       - name: Prepare build space
         run: |
@@ -65,6 +100,8 @@ jobs:
             exit 1
           fi
           test -s "${images[0]}"
+          sh scripts/check-build-configs.sh /mnt/output
+          test -s /mnt/output/images/haos_r68s-*.raucb
           python3 scripts/check-image-gpt.py "${images[0]}"
           sha256sum "${images[0]}" | tee /mnt/output/images/SHA256SUMS-R68S-UNVERIFIED
           echo "IMAGE_BUILD_ONLY=1: NOT TESTED ON R68S; DO NOT FLASH"
@@ -78,3 +115,16 @@ jobs:
             /mnt/output/images/SHA256SUMS-R68S-UNVERIFIED
           if-no-files-found: error
           retention-days: 7
+
+      - name: Upload R68S-only signed OTA bundle
+        if: env.OTA_SIGNING_READY == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: R68S-HAOS-SIGNED-OTA-UNVERIFIED
+          path: /mnt/output/images/haos_r68s-*.raucb
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Remove private signing key from workspace
+        if: always()
+        run: rm -f haos/key.pem
