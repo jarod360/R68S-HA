@@ -52,6 +52,7 @@ dmesg 2>/dev/null | grep -Ei 'mmc|rk3568|pcie|r8169|rtl8125|dwmac|gmac|usb' | ta
 仅在具备可恢复条件、确认镜像检查和选择正确目标 eMMC 后进行写盘；**本清单不提供未经针对性核实的 `dd of=` 或 RKDevTool 写入参数**。
 
 - 最好准备 **3.3V TTL** 串口接头，设 **1,500,000 baud**，记录 SPL、U-Boot、Linux 启动日志；不要误用 RS-232 或给板子串口引脚加 5V。
+- 实验版 U-Boot 设有 **3 秒串口中断窗口**（官方 HAOS 默认禁用中断），串口能进入 U-Boot 提示符时可用于诊断或手动切换启动槽；不要在不了解分区布局时执行 `mmc erase`、`gpt write` 等写入命令。
 - 首次只连接一个**千兆**网口接 DHCP 局域网，排除双 2.5G PCIe 的影响；确认开机、串口、eMMC、IP、DHCP，再检查其他网口。
 - HAOS 在首启可能需要联网下载 Core，不能以“IP 已获得但 8123 尚未打开”直接判定引导失败。
 - 记录 4GB 内存是否完整识别、eMMC 容量/分区、两个千兆和两个 2.5G 的链路协商、USB 3.0 连接稳定性、Supervisor / OS Agent 状态。
