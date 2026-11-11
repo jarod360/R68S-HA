@@ -22,7 +22,7 @@
 - `board/r68s/uboot.config`：将 ODROID-M1 U-Boot 的 SPI 启动改为 R68S 所需的 eMMC 模式，切换到通用 RK3568 板级初始化，使用 R68S DTS。
 - `patches/uboot/`：只补充 R68S SPL 的 eMMC 启动顺序；不覆盖主线驱动。
 - `scripts/prepare-haos.sh`：对固定版本的官方 HAOS 进行板级适配，保留官方磁盘布局。
-- `scripts/check-image-gpt.py`：编译后验证 GPT 结构、CRC、分区清单、标称 16GB 容量。
+- `scripts/check-image-gpt.py`：编译后验证 GPT 结构、CRC、分区清单、标称 16GB 容量及 8MiB U-Boot FIT 位置。
 
 ## 构建与验证
 
@@ -49,6 +49,6 @@ bash R68S-HA/scripts/prepare-haos.sh haos
 - 固件测试前必须备份整块 eMMC，并确认 Recovery/Maskrom 恢复路径。
 - 默认映射到 `odroid-m1` Supervisor 机器标识属于临时实验兼容方案，**不是官方 R68S 支持**。
 
-核查与验证日志见 [docs/RESEARCH.md](docs/RESEARCH.md)。
+核查与验证日志见 [docs/RESEARCH.md](docs/RESEARCH.md)；明早刷机准备及停止条件见 [docs/FLASH-TEST.md](docs/FLASH-TEST.md)。
 
 **状态：源码适配及自动构建配置已提交；尚无实机测试通过的镜像。**

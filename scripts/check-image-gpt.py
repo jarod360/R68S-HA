@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify the GPT of a built HAOS image; NOT a hardware boot/flash test."""
+"""Check R68S GPT + expected U-Boot FIT offset; NOT a hardware boot test."""
 import lzma
 import struct
 import sys
@@ -13,7 +13,8 @@ NEEDED = {
 
 def verify(path):
     with lzma.open(path, "rb") as image:
-        prefix = image.read(1024 * 1024)
+        # Need the first 8 MiB too: SPL starts at 32 KiB; its FIT payload is at 8 MiB.
+        prefix = image.read(8 * 1024 * 1024 + 4)
     if prefix[510:512] != b"\x55\xaa":
         raise ValueError("MBR signature missing")
     gpt = bytearray(prefix[512:1024])
@@ -43,8 +44,10 @@ def verify(path):
     backup_lba = struct.unpack_from("<Q", gpt, 32)[0]
     if (backup_lba + 1) * 512 > 16_000_000_000:
         raise ValueError("Disk image cannot fit nominal 16GB eMMC")
-    print("R68S_GPT_STRUCTURE_VALID")
-    print("UNVERIFIED: no DDR, U-Boot, device boot, network, or OTA tests")
+    if prefix[8 * 1024 * 1024:8 * 1024 * 1024 + 4] != bytes.fromhex("d00dfeed"):
+        raise ValueError("No U-Boot FIT header at expected eMMC 8MiB offset")
+    print("R68S_GPT_AND_UBOOT_FIT_LAYOUT_VALID")
+    print("UNVERIFIED: FIT layout only; no DDR/SPL execution, eMMC boot, network, or OTA tests")
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:

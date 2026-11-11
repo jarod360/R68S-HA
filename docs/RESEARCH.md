@@ -12,6 +12,13 @@
 - **事实（用户实机经历）**：这台 R68S 曾正常运行过飞牛 OS，提供硬件、eMMC 可启动的间接证据。
 - **未验证**：上述 ODROID-M1 改造的 U-Boot 是否能够初始化 4GB RAM、读取 R68S eMMC 并启动 Linux。
 
+## 补充发现：先于刷机必须核对
+
+- **U-Boot FIT 位置**：主线 U-Boot `rockchip-u-boot.dtsi` 将 FIT 放在 `CONFIG_SPL_PAD_TO`（Rockchip 默认 `0x7f8000`）；官方 M1 `image-spl-spl.cfg` 将 `u-boot-rockchip.bin` 放在 32KiB。因此期望 eMMC **8MiB** 处存在 FIT 标头 `0xd00dfeed`。检查静态镜像的此位置可发现引导布局明显错误，仍不能证明启动成功。
+- **OTA 兼容性保护**：本项目 `BOARD_ID=r68s`，RAUC `compatible=haos-r68s`；而 Supervisor 容器阶段暂时使用 `odroid-m1` 机器标识。不能直接使用官方 M1 系统更新包。正式使用前要有 R68S 专属签名、更新和回滚测试。
+- **boot0/boot1**：eMMC 除用户区域以外可能存在硬件启动分区，需要实机确认；只备份 GPT 分区并不一定能恢复原始引导链。
+- **无显示屏和 SD 槽**：首启调试建议使用 3.3V UART（1500000 baud）；PC 的 Rockchip 恢复接口、Loader/Maskrom 必须在写盘前确认，不应套用 Hardkernel 的 Petitboot/SD 卡教程。
+
 ## 安全门槛
 
 1. 完成 GitHub Actions 云编译并检验 GPT；即便成功，依然只标 `UNVERIFIED-DO-NOT-FLASH`。
