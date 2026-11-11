@@ -44,6 +44,11 @@ sed -i \
     -e 's|BR2_TARGET_UBOOT_BOARD_DEFCONFIG="odroid-m1-rk3568"|BR2_TARGET_UBOOT_BOARD_DEFCONFIG="fastrhino-r66s-rk3568"|' \
     "$CONFIG"
 
+# RTL8125B PCIe is already supported by Linux r8169 (module).
+# ODROID-M1 does not select rtl_nic/rtl8125b-2.fw: install Realtek Ethernet firmware.
+printf '\nBR2_PACKAGE_LINUX_FIRMWARE_RTL_8169=y\n' >> "$CONFIG"
+
+grep -Fq 'BR2_PACKAGE_LINUX_FIRMWARE_RTL_8169=y' "$CONFIG"
 grep -Fq 'BR2_LINUX_KERNEL_INTREE_DTS_NAME="rockchip/rk3568-fastrhino-r68s"' "$CONFIG"
 grep -Fq 'BR2_TARGET_UBOOT_BOARD_DEFCONFIG="fastrhino-r66s-rk3568"' "$CONFIG"
 grep -Fq 'setenv fdtfile rk3568-fastrhino-r68s.dtb' "$BOARD/uboot-boot.ush"

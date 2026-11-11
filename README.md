@@ -45,11 +45,13 @@ bash R68S-HA/scripts/prepare-haos.sh haos
 
 1. **SPL/TPL DDR 初始化**：R68S 4GB 机器的内存初始化与现成 ODROID-M1/R66S 的 Rockchip blob 未证实兼容；该项不验证，**禁止刷机**。
 2. **引导与分区**：HAOS 采用 SPL + GPT + A/B RAUC；要验证 eMMC boot ROM 与分区偏移、Recovery/Maskrom 救援，不得把 OpenWrt 的 sysupgrade 当作 HAOS 整盘写入工具。
-3. **网络**：主线内核的 GMAC、PCIe Realtek R8169 已提供源码，但四端口枚举和 PHY 时序需实机测试。
+3. **网络**：官方 HAOS 内核已有 PCIe `r8169`（包含 RTL8125B 支持），本项目额外启用 `BR2_PACKAGE_LINUX_FIRMWARE_RTL_8169`，补齐 `rtl_nic/rtl8125b-2.fw`；四端口枚举和 PHY 时序仍需实机测试。
 4. **磁盘**：16GB eMMC 较紧张；后续优先考虑把 HAOS data partition 迁到 USB 3.0 SSD。
 5. **Supervisor/OS-Agent/OTA**：初始使用官方 ODROID-M1 容器机器标识只是启动验证兼容策略，不代表官方认可 R68S。最终应消除平台伪装并确认 RAUC 签名/更新渠道。
 
 核查记录：[docs/RESEARCH.md](docs/RESEARCH.md)。
+
+已按官方 ODROID-M1 的方式精简适配：保留内核自带的 `r8169` 模块，仅补充 RTL8125B 固件包和 R68S 的 eMMC/GMAC 配置。
 
 ## 当前状态
 

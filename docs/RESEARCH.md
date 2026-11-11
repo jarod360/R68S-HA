@@ -5,8 +5,23 @@
 - **Linux v6.18** 包含 `rk3568-fastrhino-r68s.dts`，R68S 的 `&sdhci` 描述 8-bit eMMC、两个 GMAC PHY；共用 `rk3568-fastrhino-r66s.dtsi` 提供 PCIe 与 USB 配置。
 - **R68S 4GB/16GB 型号确实存在**，双 RTL8125BG 2.5G PCIe 网卡、双 RTL8211F 千兆 PHY；不是仅有 1GB/2GB 版本。
 - **HAOS 官方 ODROID-M1 构建目标**同为 RK3568，Buildroot + Supervisor + OS Agent + RAUC A/B 分区的体系可复用。
-- **U-Boot v2026.04** 有 R66S defconfig 和 R68S 的 Linux DTS，但未找到完整 R68S defconfig。当前使用 R66S 配置 + R68S eMMC/GMAC config fragment + U-Boot DTS 补丁。
+- **U-Boot v2026.04** 有 R66S defconfig 和 R68S 的 Linux DTS，但未找到完整 R68S defconfig。当前使用 R66S 配置 + R68S eMMC/DTS fragment + U-Boot DTS 补丁。
 - **Armbian** 有 R68S 专用 `build-armbian/u-boot/r68s/bootloader.bin`，但该预编译文件的 DDR 4GB 初始化能力、许可及 HAOS 分区兼容性没有核实，尚未纳入构建。
+
+## 与官方 ODROID-M1 的最小驱动差异（进一步核实）
+
+经核对 HAOS 固定上游提交 `945ba38d...` 对应的 Buildroot 子模块 `5c344b3...`：
+
+- 官方内核已经设置 `CONFIG_R8169=m`、`CONFIG_PCIE_ROCKCHIP_DW_HOST=y`、`CONFIG_STMMAC_ETH=y`；Linux 6.18 `drivers/net/ethernet/realtek/r8169_main.c` 包含 RTL8125B 和 PCI ID `0x8125`。**不需要第三方 r8125 驱动**。
+- 官方 ODROID-M1 的 `BR2_PACKAGE_LINUX_FIRMWARE_RTL_81XX=y` 主要包含 `rtlwifi/` 无线固件，不是 RTL8125B 的以太网固件。
+- Linux `r8169` 可能请求 `rtl_nic/rtl8125b-2.fw`。Buildroot `BR2_PACKAGE_LINUX_FIRMWARE_RTL_8169=y` 恰好会安装该文件（以及同系列 Realtek 有线固件）。**因此这是 R68S 应补充的构建项**。
+- 内核保留 `CONFIG_R8169=m`（官方模块形式），只用最小 fragment 启用 `CONFIG_DWMAC_ROCKCHIP=y`（双千兆 GMAC）并将 `CONFIG_MMC_SDHCI_OF_DWCMSHC` 从 `m` 改为 `y`（从 eMMC 直接挂载根文件系统）。
+- U-Boot 配置只保留 R68S DTS 与 eMMC SDHCI 差异，不额外启用网络引导、USB 设备模拟等非必要项。仅修正内核不代表 DDR/TPL 或 eMMC SPL 已验证。
+
+代码来源：
+- https://github.com/torvalds/linux/blob/v6.18/drivers/net/ethernet/realtek/r8169_main.c
+- https://github.com/home-assistant/buildroot/blob/5c344b3789e3f6d620cf11ffab60e522a875cc79/package/linux-firmware/linux-firmware.mk
+- https://github.com/home-assistant/operating-system/blob/945ba38d88e7e7d7321d42294b222b8deb2208d2/buildroot-external/configs/odroid_m1_defconfig
 
 ## 技术难点与验收标准
 
