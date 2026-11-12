@@ -70,7 +70,7 @@ R68S 使用单独 Linux DTS 最小补丁启用 `&wdt { status = "okay"; };`，�
 1. RAUC bundle `manifest.raucm` 仅包含 `image.kernel` 和 `image.rootfs`；不能出现 `image.boot`/`image.spl`。
 2. 系统内 `/etc/rauc/system.conf` 只声明 kernel/rootfs 的 A/B 槽；不能出现 boot/spl 可写槽。
 3. 对比升级前后：eMMC 前 16MiB、`hassos-boot` 保持一致（若用户配置没有另行改变）；`hassos-data` 与 `hassos-overlay` 均未格式化。
-4. CI 必须对**实际构建出的** `.raucb` 调用 RAUC `info --keyring --output-format=json-2`，核实签名可被镜像中内置的证书信任、`compatible=haos-r68s` 且只包含 kernel/rootfs 两种镜像；同时检查系统实际 `/etc/rauc/system.conf` 中不再存在 boot/spl 槽。
+4. CI 必须对**实际构建出的** `.raucb` 调用 RAUC `info --keyring --intermediate --output-format=shell`，核实签名可被镜像中内置的证书信任、`compatible=haos-r68s` 且只包含 kernel/rootfs 两种镜像；当前 HAOS host-rauc 构建禁用了 JSON 输出，因此验证脚本解析 RAUC shell formatter（包括带引号字段和空值）。同时检查系统实际 `/etc/rauc/system.conf` 中不再存在 boot/spl 槽。
 5. 人工验证：成功升级一次和模拟新版无法启动后的自动回退、再次可用，以及正常 HA 数据仍在。
 6. 新签名/证书要由已有系统验证；跨 HAOS 大版本时确认内核/DTB ABI 与 Docker/系统服务兼容性。
 
