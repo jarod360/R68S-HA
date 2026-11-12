@@ -2,7 +2,7 @@
 
 ## 首要结论
 
-**尚未有经实机启动验证的 R68S 原生 HAOS 镜像。** GitHub Actions 生成的 `UNVERIFIED-DO-NOT-FLASH` 仅是编译产物，明早应按本清单完成准备与判断；若恢复路径未验证，**不应写入 eMMC**。
+**尚未有经实机启动验证的 R68S 原生 HAOS 镜像。** GitHub Actions 生成的 `UNVERIFIED-DO-NOT-FLASH` 仅是编译产物；首刷前必须按本清单完成准备与判断。若恢复路径未验证，**不应写入 eMMC**。
 
 设备：R68S / RK3568 / 4GB RAM / 16GB 板载 eMMC / 无 SD 卡槽 / USB 3.0。此前飞牛 OS 可启动属于已有系统运行证据，不等于本项目 DDR TPL、SPL 和 U-Boot 适配已通过。
 
@@ -15,6 +15,9 @@ echo '===== BOARD ====='
 tr '\000' '\n' < /proc/device-tree/model 2>/dev/null
 uname -a
 cat /proc/cmdline
+echo '===== MEMORY ====='
+grep -E 'MemTotal|MemAvailable' /proc/meminfo
+free -h 2>/dev/null || true
 echo '===== MMC / STORAGE ====='
 cat /proc/partitions
 for p in /sys/block/mmcblk[0-9]*; do
