@@ -24,7 +24,7 @@ jobs:
     timeout-minutes: 360
     concurrency:
       group: r68s-haos-build
-      cancel-in-progress: true
+      cancel-in-progress: false
     env:
       HAOS_SHA: ${{ inputs.haos_sha || '945ba38d88e7e7d7321d42294b222b8deb2208d2' }}
     steps:
@@ -78,6 +78,27 @@ jobs:
           sudo chown -R "$(id -u):$(id -g)" /mnt/cache /mnt/output
           df -h
 
+      # The pinned HAOS Buildroot defconfig already uses /cache/dl and /cache/cc.
+      # Hosted runners are ephemeral, so restore both between full rebuilds.
+      - name: Restore Buildroot downloads
+        continue-on-error: true
+        uses: actions/cache/restore@v4
+        with:
+          path: /mnt/cache/dl
+          key: r68s-dl-${{ env.HAOS_SHA }}-${{ github.run_id }}
+          restore-keys: |
+            r68s-dl-${{ env.HAOS_SHA }}-
+            r68s-dl-
+
+      - name: Restore Buildroot compiler cache
+        continue-on-error: true
+        uses: actions/cache/restore@v4
+        with:
+          path: /mnt/cache/cc
+          key: r68s-cc-${{ runner.os }}-${{ env.HAOS_SHA }}-${{ github.run_id }}
+          restore-keys: |
+            r68s-cc-${{ runner.os }}-${{ env.HAOS_SHA }}-
+
       - name: Build official HAOS builder container
         run: docker build --tag haos-builder:r68s --file haos/Dockerfile haos
 
@@ -94,6 +115,22 @@ jobs:
             -e BUILDER_UID="$(id -u)" -e BUILDER_GID="$(id -g)" \
             -v "$PWD/haos:/build" -v "/mnt/cache:/cache" -v "/mnt/output:/build/output" \
             haos-builder:r68s make
+
+      # Preserve successful compile work even if the later bundle/GPT verifier
+      # discovers a problem; a subsequent run can reuse the compiler objects.
+      - name: Save Buildroot downloads
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: /mnt/cache/dl
+          key: r68s-dl-${{ env.HAOS_SHA }}-${{ github.run_id }}
+
+      - name: Save Buildroot compiler cache
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: /mnt/cache/cc
+          key: r68s-cc-${{ runner.os }}-${{ env.HAOS_SHA }}-${{ github.run_id }}
 
       - name: Validate output presence and SHA256
         run: |
