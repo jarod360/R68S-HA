@@ -24,7 +24,7 @@ jobs:
     timeout-minutes: 360
     concurrency:
       group: r68s-haos-build
-      cancel-in-progress: false
+      cancel-in-progress: true
     env:
       HAOS_SHA: ${{ inputs.haos_sha || '945ba38d88e7e7d7321d42294b222b8deb2208d2' }}
     steps:
