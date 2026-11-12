@@ -35,3 +35,9 @@
 - [ODROID-M1 官方 HAOS 板级配置](https://github.com/home-assistant/operating-system/tree/dev/buildroot-external/board/hardkernel/odroid-m1)
 - [U-Boot v2026.04 的 ODROID-M1 配置](https://github.com/u-boot/u-boot/blob/v2026.04/configs/odroid-m1-rk3568_defconfig)
 - [Linux v6.18 的 R68S 设备树](https://github.com/torvalds/linux/blob/v6.18/arch/arm64/boot/dts/rockchip/rk3568-fastrhino-r68s.dts)
+
+## 2026-11-12 编译日志发现的确定错误
+
+- `43093516097` 和 `43086163101` 均在 **U-Boot Binman** 阶段失败：`default-dt ... rk3568-fastrhino-r68s not found in fdt list: rk3568-odroid-m1`。这并非 2.5G 网卡问题。
+- U-Boot v2026.04 的 `dts/Kconfig` 使用 `CONFIG_OF_LIST` 为 FIT 选择设备树，`CONFIG_SPL_OF_LIST` 控制 SPL 设备树列表。之前只改 `CONFIG_DEFAULT_DEVICE_TREE`，导致 FIT 列表遗留 ODROID-M1。
+- 修复：显式同步 R68S 的 `CONFIG_DEFAULT_DEVICE_TREE`、`CONFIG_OF_LIST`、`CONFIG_SPL_OF_LIST`；编译配置校验新增对应断言。修复提交后的构建未成功前，禁止刷机。

@@ -26,6 +26,8 @@ check() {
 
 check "$out/.config" 'BR2_PACKAGE_LINUX_FIRMWARE_RTL_8169=y'
 check "$uboot" 'CONFIG_DEFAULT_DEVICE_TREE="rockchip/rk3568-fastrhino-r68s"'
+check "$uboot" 'CONFIG_OF_LIST="rockchip/rk3568-fastrhino-r68s"'
+check "$uboot" 'CONFIG_SPL_OF_LIST="rockchip/rk3568-fastrhino-r68s"'
 check "$uboot" 'CONFIG_TARGET_EVB_RK3568=y'
 check "$uboot" '# CONFIG_ROCKCHIP_SPI_IMAGE is not set'
 check "$uboot" 'CONFIG_SPL_PAD_TO=0x7f8000'

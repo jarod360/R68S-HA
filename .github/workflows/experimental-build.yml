@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/experimental-build.yml'
+      - 'board/r68s/**'
+      - 'patches/**'
+      - 'scripts/**'
   workflow_dispatch:
     inputs:
       haos_sha:
