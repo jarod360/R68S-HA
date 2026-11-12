@@ -81,6 +81,7 @@ jobs:
       # The pinned HAOS Buildroot defconfig already uses /cache/dl and /cache/cc.
       # Hosted runners are ephemeral, so restore both between full rebuilds.
       - name: Restore Buildroot downloads
+        continue-on-error: true
         uses: actions/cache/restore@v4
         with:
           path: /mnt/cache/dl
@@ -90,6 +91,7 @@ jobs:
             r68s-dl-
 
       - name: Restore Buildroot compiler cache
+        continue-on-error: true
         uses: actions/cache/restore@v4
         with:
           path: /mnt/cache/cc
@@ -117,12 +119,14 @@ jobs:
       # Preserve successful compile work even if the later bundle/GPT verifier
       # discovers a problem; a subsequent run can reuse the compiler objects.
       - name: Save Buildroot downloads
+        continue-on-error: true
         uses: actions/cache/save@v4
         with:
           path: /mnt/cache/dl
           key: r68s-dl-${{ env.HAOS_SHA }}-${{ github.run_id }}
 
       - name: Save Buildroot compiler cache
+        continue-on-error: true
         uses: actions/cache/save@v4
         with:
           path: /mnt/cache/cc
