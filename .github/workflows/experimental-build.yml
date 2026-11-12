@@ -78,6 +78,14 @@ jobs:
           sudo chown -R "$(id -u):$(id -g)" /mnt/cache /mnt/output
           df -h
 
+      - name: Restore Buildroot compiler cache
+        uses: actions/cache@v4
+        with:
+          path: /mnt/cache/cc
+          key: r68s-ccache-v1-${{ env.HAOS_SHA }}-${{ hashFiles('board/r68s/**', 'patches/**', 'scripts/prepare-haos.sh') }}
+          restore-keys: |
+            r68s-ccache-v1-${{ env.HAOS_SHA }}-
+
       - name: Build official HAOS builder container
         run: docker build --tag haos-builder:r68s --file haos/Dockerfile haos
 
@@ -85,6 +93,7 @@ jobs:
         run: |
           docker run --rm --privileged \
             -e BUILDER_UID="$(id -u)" -e BUILDER_GID="$(id -g)" \
+            -e CCACHE_MAXSIZE=3G \
             -v "$PWD/haos:/build" -v "/mnt/cache:/cache" -v "/mnt/output:/build/output" \
             haos-builder:r68s make r68s-config
 
@@ -92,6 +101,7 @@ jobs:
         run: |
           docker run --rm --privileged \
             -e BUILDER_UID="$(id -u)" -e BUILDER_GID="$(id -g)" \
+            -e CCACHE_MAXSIZE=3G \
             -v "$PWD/haos:/build" -v "/mnt/cache:/cache" -v "/mnt/output:/build/output" \
             haos-builder:r68s make
 
