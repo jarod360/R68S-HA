@@ -21,6 +21,11 @@
 
 - **SPL 读取扇区**：U-Boot v2026.04 的 Rockchip 默认 `CONFIG_SPL_MMC=y`，`SYS_MMCSD_RAW_MODE_U_BOOT_SECTOR=0x4000`（每扇区 512 字节，即 8MiB）。这与官方 HAOS `u-boot-rockchip.bin` 从 32KiB 写入、FIT 偏移 `SPL_PAD_TO=0x7f8000` 相匹配。现已在 R68S fragment 中显式钉住配置并添加编译后检查。即使静态偏移正确，仍需实机验证 U-Boot 能读 eMMC。
 
+## 2026-11-12 R68S 网口高负载稳定性外部报告
+
+- [iStoreOS issue #2974](https://github.com/istoreos/istoreos/issues/2974) 记录一台 R68S 4GB / eMMC 设备在 iStoreOS 24.10.7、Linux 6.6.141 下进行高速下载时整机无响应；此前 `eth0`（RTL8211F / stmmac）出现 Link Down/Up 循环和 PHY 重初始化。该 issue 仍未给出确定根因或修复。
+- 这是一个需要纳入验证的外部故障报告，**不能直接推断本项目固定的 Linux 6.18.63 一定存在相同问题**。首启网络测试除链路协商外，还应逐口进行本地持续传输并监视 `dmesg` 中 `Link is Down/Up`、PHY 重初始化、watchdog/reset 记录；先单口、再逐步增加负载，出现抖动立即停止并保留日志。
+
 ## 安全门槛
 
 1. 完成 GitHub Actions 云编译并检验 GPT；即便成功，依然只标 `UNVERIFIED-DO-NOT-FLASH`。
