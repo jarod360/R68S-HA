@@ -4,36 +4,61 @@
 Does not test installation or hardware rollback; refuse to approve unknown formats.
 """
 import configparser
-import json
+import shlex
 from pathlib import Path
 import subprocess
 import sys
 
-if len(sys.argv) != 5:
+if len(sys.argv) != 6:
     raise SystemExit(
         "Usage: check-safe-ota-bundle.py bundle.raucb rauc-bin "
-        "keyring.pem system.conf"
+        "keyring.pem system.conf intermediate-ca.pem"
     )
 
-bundle, rauc, keyring, config = map(Path, sys.argv[1:])
-for p in (bundle, rauc, keyring, config):
+bundle, rauc, keyring, config, intermediate = map(Path, sys.argv[1:])
+for p in (bundle, rauc, keyring, config, intermediate):
     if not p.is_file() or not p.stat().st_size:
         raise SystemExit(f"Missing verification input: {p}")
 
-# Full certificate verification: --no-verify would make the result unsafe.
-result = subprocess.run(
-    [str(rauc), f"--keyring={keyring}", "info", "--output-format=json-2", str(bundle)],
-    check=True, capture_output=True, text=True,
-)
-info = json.loads(result.stdout)
-update = info.get("update", {})
-if update.get("compatible") != "haos-r68s":
-    raise SystemExit(f"Unexpected update compatibility: {update!r}")
+# Buildroot's host-rauc is compiled with -Djson=disabled. The upstream
+# shell formatter is always available and still performs full signature checks.
+command = [
+    str(rauc),
+    f"--keyring={keyring}",
+    f"--intermediate={intermediate}",
+    "info",
+    "--output-format=shell",
+    str(bundle),
+]
+result = subprocess.run(command, check=False, capture_output=True, text=True)
+if result.returncode:
+    detail = result.stderr.strip() or result.stdout.strip() or "no RAUC diagnostic"
+    raise SystemExit(f"RAUC bundle verification failed: {detail}")
 
-images = info.get("images")
-if not isinstance(images, list) or len(images) != 2:
-    raise SystemExit(f"Expected exactly two OTA images: {images!r}")
-classes = {i.get("slot-class") for i in images}
+info = {}
+for line in result.stdout.splitlines():
+    if not line.strip():
+        continue
+    if "=" not in line:
+        raise SystemExit(f"Unexpected RAUC shell output: {line!r}")
+    key, raw_value = line.split("=", 1)
+    parsed = shlex.split(raw_value, posix=True)
+    if len(parsed) != 1:
+        raise SystemExit(f"Invalid RAUC shell value for {key}: {raw_value!r}")
+    info[key] = parsed[0]
+
+compatible = info.get("RAUC_MF_COMPATIBLE")
+if compatible != "haos-r68s":
+    raise SystemExit(f"Unexpected update compatibility: {compatible!r}")
+
+try:
+    image_count = int(info.get("RAUC_MF_IMAGES", "-1"))
+except ValueError:
+    raise SystemExit("Invalid RAUC image count")
+
+if image_count != 2:
+    raise SystemExit(f"Expected exactly two OTA images: {image_count!r}")
+classes = {info.get(f"RAUC_IMAGE_CLASS_{i}") for i in range(image_count)}
 if classes != {"kernel", "rootfs"}:
     raise SystemExit(f"Unsafe OTA slot classes: {classes!r}")
 
