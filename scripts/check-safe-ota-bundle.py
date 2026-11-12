@@ -4,6 +4,7 @@
 Does not test installation or hardware rollback; refuse to approve unknown formats.
 """
 import configparser
+import shlex
 from pathlib import Path
 import subprocess
 import sys
@@ -41,7 +42,15 @@ for line in result.stdout.splitlines():
     if "=" not in line:
         raise SystemExit(f"Unexpected RAUC shell output: {line!r}")
     key, raw_value = line.split("=", 1)
-    info[key] = raw_value
+    try:
+        parsed = shlex.split(raw_value, posix=True)
+    except ValueError as exc:
+        raise SystemExit(f"Invalid RAUC shell value for {key}: {exc}") from exc
+    if len(parsed) > 1:
+        raise SystemExit(f"Invalid RAUC shell value for {key}: {raw_value!r}")
+    # RAUC's shell formatter quotes values; an empty value may be emitted as
+    # an empty quoted token or as an empty assignment by compatible versions.
+    info[key] = parsed[0] if parsed else ""
 
 compatible = info.get("RAUC_MF_COMPATIBLE")
 if compatible != "haos-r68s":
