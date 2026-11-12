@@ -108,11 +108,21 @@ jobs:
           sh scripts/check-build-configs.sh /mnt/output
           bundles=(/mnt/output/images/haos_r68s-*.raucb)
           test "${#bundles[@]}" -eq 1
-          python3 scripts/check-safe-ota-bundle.py "${bundles[0]}" \
-            /mnt/output/host/bin/rauc \
-            /mnt/output/target/etc/rauc/keyring.pem \
-            /mnt/output/target/etc/rauc/system.conf \
-            haos/buildroot-external/ota/rel-ca-xsign-oldroot.cert.pem
+          # host/bin/rauc and its bundled host libraries are built inside the
+          # Debian Trixie builder. Run the verifier in that same image rather
+          # than on the Ubuntu 22.04 runner, whose glibc is too old.
+          docker run --rm \
+            --volume "$PWD/scripts/check-safe-ota-bundle.py:/workspace/check-safe-ota-bundle.py:ro" \
+            --volume "/mnt/output:/mnt/output:ro" \
+            --volume "$PWD/haos/buildroot-external/ota/rel-ca-xsign-oldroot.cert.pem:/workspace/rel-ca-xsign-oldroot.cert.pem:ro" \
+            --env PATH="/mnt/output/host/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+            --entrypoint python3 \
+            haos-builder:r68s \
+            /workspace/check-safe-ota-bundle.py "${bundles[0]}" \
+              /mnt/output/host/bin/rauc \
+              /mnt/output/target/etc/rauc/keyring.pem \
+              /mnt/output/target/etc/rauc/system.conf \
+              /workspace/rel-ca-xsign-oldroot.cert.pem
           python3 scripts/check-image-gpt.py "${images[0]}"
           sha256sum "${images[0]}" | tee /mnt/output/images/SHA256SUMS-R68S-UNVERIFIED
           echo "IMAGE_BUILD_ONLY=1: NOT TESTED ON R68S; DO NOT FLASH"
