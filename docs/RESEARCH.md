@@ -43,6 +43,13 @@
 - 修复：显式同步 R68S 的 `CONFIG_DEFAULT_DEVICE_TREE`、`CONFIG_OF_LIST`、`CONFIG_SPL_OF_LIST`；编译配置校验新增对应断言。修复提交后的构建未成功前，禁止刷机。
 
 
+## 2026-11-12 Actions Run #11：RAUC 主机工具 GLIBC 不兼容
+
+- Run #11（提交 `79e8e5a`）在 `Validate output presence and SHA256` 失败。HAOS 镜像编译、GPT 生成和 RAUC Bundle 生成均已完成；Bundle 生成阶段的内联签名检查成功。
+- 失败原因不是编译超时，也不是 Bundle 签名错误：工作流把 `/mnt/output/host/bin/rauc` 直接放到 `ubuntu-22.04` runner 上执行，而 Buildroot host libraries 要求 `GLIBC_2.38`（另有依赖要求 `GLIBC_2.36`），Runner 系统库版本不满足。
+- 修复提交 `170d074` 将 RAUC 验证脚本和 `rauc` 本体放回官方 `haos-builder:r68s` Debian Trixie 容器中运行，避免在宿主机加载不兼容的 host libraries；`0a6b981` 再修正 RAUC Shell 输出中引号字段和空值的解析。
+- 最新 Run #13 使用 `0a6b981`，必须等它的最终验证和 Artifact 上传全部成功，才能认定这次修复通过。Run #12 因新提交触发 `cancel-in-progress` 被取消，不代表构建本身失败。
+
 ## 2026-11-12 R68S 专用 U-Boot 开源实现对照
 
 - OpenWrt/ImmortalWrt 已维护 R68S 专用 `fastrhino-r68s-rk3568_defconfig`，其 U-Boot DTSI 除 `same-as-spl, &sdhci` eMMC 启动顺序外，还将 `usb_host0_xhci` 配置为 USB peripheral；defconfig 启用了 `CONFIG_CMD_ROCKUSB`、`CONFIG_USB_GADGET_DOWNLOAD` 和 `CONFIG_USB_FUNCTION_ROCKUSB`，提供 U-Boot 阶段的 RockUSB 恢复入口。参考：[OpenWrt R68S U-Boot patch](https://github.com/coolsnowwolf/lede/blob/80122feac964889bc69b62420cedfefaaf701eb0/package/boot/uboot-rockchip/patches/311-rockchip-rk3568-Add-support-for-fastrhino-r6xs.patch)、[ImmortalWrt U-Boot package](https://github.com/immortalwrt/immortalwrt/blob/4765b657625ec5bbda74b44400465fe043802b30/package/boot/uboot-rockchip/Makefile)。
