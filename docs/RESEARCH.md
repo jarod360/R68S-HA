@@ -42,15 +42,22 @@
 - U-Boot v2026.04 的 `dts/Kconfig` 使用 `CONFIG_OF_LIST` 为 FIT 选择设备树，`CONFIG_SPL_OF_LIST` 控制 SPL 设备树列表。之前只改 `CONFIG_DEFAULT_DEVICE_TREE`，导致 FIT 列表遗留 ODROID-M1。
 - 修复：显式同步 R68S 的 `CONFIG_DEFAULT_DEVICE_TREE`、`CONFIG_OF_LIST`、`CONFIG_SPL_OF_LIST`；编译配置校验新增对应断言。修复提交后的构建未成功前，禁止刷机。
 
+
+## 2026-11-12 R68S 专用 U-Boot 开源实现对照
+
+- OpenWrt/ImmortalWrt 已维护 R68S 专用 `fastrhino-r68s-rk3568_defconfig`，其 U-Boot DTSI 除 `same-as-spl, &sdhci` eMMC 启动顺序外，还将 `usb_host0_xhci` 配置为 USB peripheral；defconfig 启用了 `CONFIG_CMD_ROCKUSB`、`CONFIG_USB_GADGET_DOWNLOAD` 和 `CONFIG_USB_FUNCTION_ROCKUSB`，提供 U-Boot 阶段的 RockUSB 恢复入口。参考：[OpenWrt R68S U-Boot patch](https://github.com/coolsnowwolf/lede/blob/80122feac964889bc69b62420cedfefaaf701eb0/package/boot/uboot-rockchip/patches/311-rockchip-rk3568-Add-support-for-fastrhino-r6xs.patch)、[ImmortalWrt U-Boot package](https://github.com/immortalwrt/immortalwrt/blob/4765b657625ec5bbda74b44400465fe043802b30/package/boot/uboot-rockchip/Makefile)。
+- 当前 R68S-HA 的 U-Boot 补丁只处理 SPL eMMC 启动顺序，现有 fragment 未启用上述 RockUSB gadget 功能。它不是 Linux/HAOS 启动的必要条件，也不等于 BootROM Loader/Maskrom 不可用；但在无 SD 卡槽设备上，增加并验证 U-Boot USB 恢复入口会提升可维护性。
+- **处理顺序**：不在正在运行的首次全量构建中途改 U-Boot；先取得当前构建产物，再按固定的 HAOS U-Boot v2026.04 源码版本核对 OpenWrt patch 的可移植性，单独编译和检查 USB OTG/RockUSB，不直接照搬不同 U-Boot 版本的配置。
+
 ## 2026-11-12 第二轮源码核对：DDR 与长期升级限制
 
 以下是源码直接可验证的事实；**尚不是实机通过结论**。
 
 1. 当前钉住的官方 HAOS `945ba38d88e7e7d7321d42294b222b8deb2208d2` 的 ODROID-M1 defconfig 采用 Linux `6.18.63`、U-Boot `2026.04`、Rockchip DDR/TPL `rk3568_ddr_1560MHz_v1.18.bin` 与 BL31 `rk3568_bl31_v1.43.elf`。R68S 适配沿用了这套 TPL；必须通过 R68S 4GB 真机 UART/运行日志确认 DDR 容量、训练及稳定性，不能因 SoC 相同直接推断可启动。参考：[固定版本 ODROID-M1 defconfig](https://github.com/home-assistant/operating-system/blob/945ba38d88e7e7d7321d42294b222b8deb2208d2/buildroot-external/configs/odroid_m1_defconfig)。
-2. 社区 [R68S 机型数据库](https://github.com/ophub/amlogic-s9xxx-armbian/blob/main/build-armbian/armbian-files/common-files/etc/model_database.conf) 将常见 R68S 标为 **1/2GB LPDDR4**，但用户设备记录为 **4GB**。这不是型号错误的证据，而是需要实机核实的配置差异；确认 `MemTotal`、机型/主板版本和原厂可工作系统的引导器，不能照搬社区预编译 loader 的 DDR 假设。
+2. **R68S 内存规格存在公开资料冲突，不能把单一数据库当作定论**：原始上游 Linux DTS 提交说明 R68S 有 **2/4GB LPDDR4** 版本（[LKML patch](https://lkml.iu.edu/2304.3/04416.html)）；独立硬件资料也列出 **2GB/4GB LPDDR4X**（[CNX Software](https://www.cnx-software.com/2022/06/02/fastrhino-r68s-router-offers-4gb-ram-dual-2-5gbe-dual-gigabit-ethernet/)），并有 R68S 4GB 实机记录（[iStoreOS issue](https://github.com/istoreos/istoreos/issues/2974)）。Armbian 的机型数据库则写成 **1/2GB LPDDR4**，与上述资料不一致。结论：用户的 4GB 版本是合理存在的，不能据 Armbian 单行数据判定型号错误；首刷前仍须从原系统读取 `MemTotal` 并记录板卡版本。无论容量如何，R68S 的 DDR TPL 训练都必须通过串口实机验证。
 3. 官方 ODROID-M1 的 `images-os.cfg` 将 `kernel.img` 打包为包含内核 `Image` 的 SquashFS，而 `uboot-boot.ush` 在选择 A/B 槽之前从共享 `hassos-boot` FAT 分区读取单一 `rk3568-fastrhino-r68s.dtb`。现有 OTA 仅修改 kernel/rootfs，**不会同步 DTB**。这能避免升级覆盖共用引导文件，但在跨内核版本时存在设备树与新内核不匹配的风险；首次实机通过后，应以版本矩阵测试确认兼容，否则阻止自动升级。参考：[images-os.cfg](https://github.com/home-assistant/operating-system/blob/945ba38d88e7e7d7321d42294b222b8deb2208d2/buildroot-external/genimage/images-os.cfg)、[ODROID-M1 U-Boot 脚本](https://github.com/home-assistant/operating-system/blob/945ba38d88e7e7d7321d42294b222b8deb2208d2/buildroot-external/board/hardkernel/odroid-m1/uboot-boot.ush)。
 4. 要做到未来 DTB 随 A/B 内核安全升级，不能简单把 DTB 复制到现有 `kernel.img`：需要同时修改内核分区镜像生成、U-Boot 按槽加载 DTB 的路径和 RAUC 兼容/回滚测试。这是**后续设计任务**，不应在第 11 次首次全量构建尚未完成时改变启动格式。
 5. RAUC 主线 `rauc info --output-format=shell` 确实提供 `RAUC_MF_COMPATIBLE`、`RAUC_MF_IMAGES` 和 `RAUC_IMAGE_CLASS_N`；当前项目第 11 次构建使用的 shell 解析字段与其源码一致。验证失败若再出现，应检查完整 RAUC stderr、实际签名证书链与镜像中的 system.conf，而不是猜测缺失 JSON 支持。
 6. 官方 HAOS 将 **ODROID-M1** 列为支持板型，未将 **FastRhino R68S** 列入受支持设备。此仓库只能提供 R68S 自行维护的构建与 OTA，不能保证在 HA 前端直接通过官方通道安全执行 Operating System 大版本升级。参考：[HAOS 支持列表](https://contributors.home-assistant.io/os/operating-system/boards/)。
 
-**下一步执行门槛**：先取得 #11 完整成功的 Actions、image + SHA256 + GPT/FIT/RAUC 校验；再对现役 R68S 只读采样及可恢复性验证，最后才进入首刷。无需为这项文档核对重启/重刷设备。
+**下一步执行门槛**：先取得最新 Actions Run 完整成功，并核对 image + SHA256 + GPT/FIT/RAUC 校验；再对现役 R68S 做只读采样及恢复能力验证，最后才进入首刷。无需为文档核对重启或重刷设备。
