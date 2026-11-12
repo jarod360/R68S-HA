@@ -111,7 +111,8 @@ jobs:
           python3 scripts/check-safe-ota-bundle.py "${bundles[0]}" \
             /mnt/output/host/bin/rauc \
             /mnt/output/target/etc/rauc/keyring.pem \
-            /mnt/output/target/etc/rauc/system.conf
+            /mnt/output/target/etc/rauc/system.conf \
+            haos/buildroot-external/ota/rel-ca-xsign-oldroot.cert.pem
           python3 scripts/check-image-gpt.py "${images[0]}"
           sha256sum "${images[0]}" | tee /mnt/output/images/SHA256SUMS-R68S-UNVERIFIED
           echo "IMAGE_BUILD_ONLY=1: NOT TESTED ON R68S; DO NOT FLASH"
