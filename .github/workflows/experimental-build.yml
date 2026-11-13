@@ -148,6 +148,7 @@ jobs:
         if: steps.compile.outcome == 'success'
         continue-on-error: true
         run: |
+          : > /mnt/output/ccache-stats.txt
           docker run --rm --privileged \
             -e BUILDER_UID="$(id -u)" -e BUILDER_GID="$(id -g)" \
             -v "$PWD/haos:/build" -v "/mnt/cache:/cache" -v "/mnt/output:/build/output" \
