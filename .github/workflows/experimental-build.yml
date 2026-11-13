@@ -47,6 +47,62 @@ jobs:
       - name: Apply R68S board integration
         run: bash scripts/prepare-haos.sh haos "$HAOS_SHA"
 
+      - name: Prepare build space
+        run: |
+          sudo rm -rf /usr/local/lib/android/sdk/ndk /opt/hostedtoolcache/CodeQL
+          sudo mkdir -p /mnt/cache/dl /mnt/cache/cc /mnt/output
+          sudo chown -R "$(id -u):$(id -g)" /mnt/cache /mnt/output
+          df -h
+
+      - name: Restore Buildroot download cache
+        id: cache-dl
+        uses: actions/cache/restore@v4
+        continue-on-error: true
+        with:
+          path: /mnt/cache/dl
+          key: ${{ runner.os }}-r68s-dl-${{ env.HAOS_SHA }}-${{ hashFiles('board/r68s/**', 'patches/**', 'scripts/prepare-haos.sh', 'haos/buildroot-external/configs/odroid_m1_defconfig') }}
+          restore-keys: |
+            ${{ runner.os }}-r68s-dl-${{ env.HAOS_SHA }}-
+            ${{ runner.os }}-r68s-dl-
+
+      - name: Restore Buildroot compiler cache
+        id: cache-cc
+        uses: actions/cache/restore@v4
+        continue-on-error: true
+        with:
+          path: /mnt/cache/cc
+          key: ${{ runner.os }}-r68s-cc-${{ env.HAOS_SHA }}-${{ hashFiles('board/r68s/**', 'patches/**', 'scripts/prepare-haos.sh', 'haos/buildroot-external/configs/odroid_m1_defconfig', 'haos/buildroot-external/kernel/v6.18.y/**', 'haos/buildroot-external/bootloader/**') }}
+          restore-keys: |
+            ${{ runner.os }}-r68s-cc-${{ env.HAOS_SHA }}-
+            ${{ runner.os }}-r68s-cc-
+
+      - name: Report cache restore
+        run: |
+          {
+            echo "## Build cache restore"
+            echo "- Buildroot download cache exact hit: ${{ steps.cache-dl.outputs.cache-hit || 'false' }}"
+            echo "- Buildroot download cache restored key: ${{ steps.cache-dl.outputs.cache-matched-key || 'none' }}"
+            echo "- Buildroot ccache exact hit: ${{ steps.cache-cc.outputs.cache-hit || 'false' }}"
+            echo "- Buildroot ccache restored key: ${{ steps.cache-cc.outputs.cache-matched-key || 'none' }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Set builder cache epoch
+        id: builder-cache-epoch
+        run: echo "week=$(date -u +%Y-%W)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build official HAOS builder container
+        uses: docker/build-push-action@v6
+        with:
+          context: ./haos
+          file: ./haos/Dockerfile
+          tags: haos-builder:r68s
+          load: true
+          cache-from: type=gha,scope=r68s-haos-builder-${{ steps.builder-cache-epoch.outputs.week }}
+          cache-to: type=gha,mode=max,scope=r68s-haos-builder-${{ steps.builder-cache-epoch.outputs.week }},ignore-error=true
+
       - name: Install persistent RAUC signing key if configured
         env:
           R68S_KEY_B64: ${{ secrets.R68S_RAUC_KEY_PEM_B64 }}
@@ -71,16 +127,6 @@ jobs:
             echo "OTA_SIGNING=PERSISTENT"
           fi
 
-      - name: Prepare build space
-        run: |
-          sudo rm -rf /usr/local/lib/android/sdk/ndk /opt/hostedtoolcache/CodeQL
-          sudo mkdir -p /mnt/cache/dl /mnt/cache/cc /mnt/output
-          sudo chown -R "$(id -u):$(id -g)" /mnt/cache /mnt/output
-          df -h
-
-      - name: Build official HAOS builder container
-        run: docker build --tag haos-builder:r68s --file haos/Dockerfile haos
-
       - name: Configure Buildroot
         run: |
           docker run --rm --privileged \
@@ -89,11 +135,40 @@ jobs:
             haos-builder:r68s make r68s-config
 
       - name: Compile experimental image
+        id: compile
         run: |
           docker run --rm --privileged \
             -e BUILDER_UID="$(id -u)" -e BUILDER_GID="$(id -g)" \
+            -e BR2_USE_CCACHE=1 -e CCACHE_MAXSIZE=4G \
             -v "$PWD/haos:/build" -v "/mnt/cache:/cache" -v "/mnt/output:/build/output" \
             haos-builder:r68s make
+
+      - name: Record Buildroot compiler-cache statistics
+        if: steps.compile.outcome == 'success'
+        continue-on-error: true
+        run: |
+          docker run --rm --privileged \
+            -e BUILDER_UID="$(id -u)" -e BUILDER_GID="$(id -g)" \
+            -e BR2_USE_CCACHE=1 -e CCACHE_MAXSIZE=4G \
+            -v "$PWD/haos:/build" -v "/mnt/cache:/cache" -v "/mnt/output:/build/output" \
+            haos-builder:r68s make ccache-stats | tee /mnt/output/ccache-stats.txt
+          cat /mnt/output/ccache-stats.txt >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Save Buildroot download cache
+        if: always() && steps.compile.outcome == 'success' && steps.cache-dl.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        continue-on-error: true
+        with:
+          path: /mnt/cache/dl
+          key: ${{ runner.os }}-r68s-dl-${{ env.HAOS_SHA }}-${{ hashFiles('board/r68s/**', 'patches/**', 'scripts/prepare-haos.sh', 'haos/buildroot-external/configs/odroid_m1_defconfig') }}
+
+      - name: Save Buildroot compiler cache
+        if: always() && steps.compile.outcome == 'success' && steps.cache-cc.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        continue-on-error: true
+        with:
+          path: /mnt/cache/cc
+          key: ${{ runner.os }}-r68s-cc-${{ env.HAOS_SHA }}-${{ hashFiles('board/r68s/**', 'patches/**', 'scripts/prepare-haos.sh', 'haos/buildroot-external/configs/odroid_m1_defconfig', 'haos/buildroot-external/kernel/v6.18.y/**', 'haos/buildroot-external/bootloader/**') }}
 
       - name: Validate output presence and SHA256
         run: |
@@ -134,6 +209,7 @@ jobs:
           path: |
             /mnt/output/images/haos_r68s-*.img.xz
             /mnt/output/images/SHA256SUMS-R68S-UNVERIFIED
+            /mnt/output/ccache-stats.txt
           if-no-files-found: error
           retention-days: 7
 
