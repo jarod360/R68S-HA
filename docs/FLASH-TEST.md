@@ -46,7 +46,7 @@ dmesg 2>/dev/null | grep -Ei 'mmc|rk3568|pcie|r8169|rtl8125|dwmac|gmac|usb' | ta
 
 1. GitHub Actions `R68S experimental HAOS build` 必须整体为 **success**。仅“Compile experimental image”结束不等于完整成功。
 2. 下载 `haos_r68s-*.img.xz` 到 `D:\Codex\R68S-HA`，核实该文件在构建记录给出的 SHA256。
-3. 在具备 Python 3 的环境中运行 `python scripts/check-image-gpt.py <镜像路径>`。确认主 GPT CRC、HAOS 的 9 个必要分区、16GB 限制，以及 eMMC **8MiB FIT** 预期位置（由官方 U-Boot `SPL_PAD_TO=0x7f8000` 与 HAOS 把 bootloader 放到 32KiB 得出）。**该检查不能证明启动成功。**
+3. 在具备 Python 3 的环境中运行 `python scripts/check-image-gpt.py <镜像路径>`。脚本支持 `.img.xz` 和解压后的 `.img`，可直接检查 RKDevTool 中选中的文件。确认主备 GPT CRC、HAOS 的 9 个必要分区、16GB 限制，以及 eMMC **8MiB FIT** 预期位置（由官方 U-Boot `SPL_PAD_TO=0x7f8000` 与 HAOS 把 bootloader 放到 32KiB 得出）。**该检查不能证明启动成功。**
 4. 编译工作目录中运行 `sh scripts/check-build-configs.sh /path/to/output`，检查最终 U-Boot/Linux 配置确实生效；这不是仅检查预设 fragment。
 5. 不直接刷官方 ODROID-M1 的 `.img`：虽然同 SoC，它的 SPI/eMMC 启动方式及板级设备树与 R68S 不同。
 
@@ -56,6 +56,7 @@ dmesg 2>/dev/null | grep -Ei 'mmc|rk3568|pcie|r8169|rtl8125|dwmac|gmac|usb' | ta
 
 - 最好准备 **3.3V TTL** 串口接头，设 **1,500,000 baud**，记录 SPL、U-Boot、Linux 启动日志；不要误用 RS-232 或给板子串口引脚加 5V。
 - 实验版 U-Boot 设有 **3 秒串口中断窗口**（官方 HAOS 默认禁用中断），串口能进入 U-Boot 提示符时可用于诊断或手动切换启动槽；不要在不了解分区布局时执行 `mmc erase`、`gpt write` 等写入命令。
+- 含 RockUSB 改动的镜像可在 U-Boot 提示符验证恢复入口。先用 `mmc list` 确认板载 eMMC 编号，再运行 `rockusb 0 mmc <编号>`，观察 PC 能否识别 Loader。该入口需要 DDR、SPL 和 U-Boot 已成功启动。
 - 首次只连接一个**千兆**网口接 DHCP 局域网，排除双 2.5G PCIe 的影响；确认开机、串口、eMMC、IP、DHCP，再检查其他网口。
 - HAOS 在首启可能需要联网下载 Core，不能以“IP 已获得但 8123 尚未打开”直接判定引导失败。
 - 记录 4GB 内存是否完整识别、eMMC 容量/分区、两个千兆和两个 2.5G 的链路协商、USB 3.0 连接稳定性、Supervisor / OS Agent 状态。
@@ -64,7 +65,14 @@ dmesg 2>/dev/null | grep -Ei 'mmc|rk3568|pcie|r8169|rtl8125|dwmac|gmac|usb' | ta
 - 固件确认能启动后，也**不要点击系统更新/OTA**：目前固件目标是 `r68s`，但 Supervisor 容器选择暂时映射到 `odroid-m1`。未经自己签名和 RAUC 回滚验证的升级包不能用于该设备。
 - 任何早期引导异常或反复重启，应停止刷写和反复重试，保留串口日志与失败步骤。
 
-## 5. 判断与提交反馈
+## 5. Rockusb 写入中断排查
+
+- 2026-11-13 的 RKDevTool 2.86 日志中，HAOS 写入分别在 0 字节、8 MiB 和约 730 MiB 中断。约 730 MiB 那次先出现 `WriteFile err=995, size=1048576, write=0`，随后重试返回 `err=31`。同日 QWRT 写入曾以 `ret=1` 结束。
+- 设备仍显示为 Maskrom 时，单独运行「读取 Chip 信息」也复现了 31 字节请求发送失败。2.92 的日志同样记录了 Loader 下载失败和 Flash 查询发送失败。下次重新进入 Maskrom 后，先记录芯片查询结果，再单独将匹配的 Loader 下载到 RAM。进入 Loader 后读取 eMMC 型号和容量，并对小范围 LBA 重复读回比对。只有这些步骤稳定通过，才有依据继续验证完整镜像写入。
+
+- QWRT 恢复后，原有 Loader 成功读出 RK3568 和三星 eMMC，工具显示 14800 MB。通过「进入 Maskrom」切换后，RKDevTool 2.86 分别向 RAM 下载随工具提供的 `MiniLoaderAll.bin` 和 Armbian 的 `rk356x_spl_loader_v1.21.113.bin`。两次都在第一个 `Boot_VendorRequest471` 请求失败（`Total(2050), Sended(0)`），设备继续显示 Maskrom。该测试未使用 HAOS 镜像。下次对照应更换 USB 主机端口或主机工具链，观察相同请求能否完成。
+
+## 6. 判断与提交反馈
 
 将**不含隐私信息**的编译错误、启动串口最后几十行、网口/块设备识别结果发回本项目；以此判断是 DDR/SPL、U-Boot、内核 DTB、网卡还是 Supervisor 层故障。不要上传完整 eMMC 备份或含个人配置的日志。
 

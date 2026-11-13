@@ -42,7 +42,7 @@ def parse_gpt_header(raw, label):
         raise ValueError(f"{label} GPT partition geometry is invalid")
     if entry_size % 8:
         raise ValueError(f"{label} GPT entry size is invalid")
-    if first_usable > last_usable or last_usable >= alternate_lba:
+    if first_usable > last_usable or last_usable >= max(current_lba, alternate_lba):
         raise ValueError(f"{label} GPT usable-LBA range is invalid")
     return {
         "current_lba": current_lba, "alternate_lba": alternate_lba,
@@ -76,7 +76,7 @@ def parse_partitions(entries, header):
     return parts
 
 
-def verify_stream(image):
+def verify_stream(image, stream_format="XZ"):
     prefix_size = FIT_OFFSET + UBOOT_PARTITION_SIZE
     prefix = image.read(prefix_size)
     if len(prefix) != prefix_size:
@@ -125,11 +125,14 @@ def verify_stream(image):
     fit_magic, fit_size = struct.unpack_from(">II", fit_header, 0)
     if fit_magic != 0xD00DFEED or not 40 <= fit_size <= UBOOT_PARTITION_SIZE:
         raise ValueError("Invalid U-Boot FIT/FDT header at eMMC 8 MiB")
-    fit = prefix[FIT_OFFSET:FIT_OFFSET + fit_size]
-    for marker in (b"lunzn,fastrhino-r68s", b"rk3568-fastrhino-r68s",
-                   b"u-boot,spl-boot-order", b"same-as-spl", b"/mmc@fe310000"):
+    uboot_partition = prefix[FIT_OFFSET:FIT_OFFSET + UBOOT_PARTITION_SIZE]
+    fit = uboot_partition[:fit_size]
+    for marker in (b"lunzn,fastrhino-r68s", b"rk3568-fastrhino-r68s"):
         if marker not in fit:
             raise ValueError(f"R68S U-Boot FIT metadata missing: {marker.decode()}")
+    for marker in (b"u-boot,spl-boot-order", b"same-as-spl", b"/mmc@fe310000"):
+        if marker not in uboot_partition:
+            raise ValueError(f"R68S U-Boot DTB boot-order metadata missing: {marker.decode()}")
 
     # Read to EOF so the XZ decoder validates the complete compressed stream.
     total_bytes = len(prefix)
@@ -170,7 +173,7 @@ def verify_stream(image):
     if backup_entries != primary_entries:
         raise ValueError("Primary and backup GPT partition arrays differ")
 
-    print(f"R68S_XZ_STREAM_VALID ({total_bytes} bytes)")
+    print(f"R68S_{stream_format}_STREAM_VALID ({total_bytes} bytes)")
     print("R68S_PRIMARY_AND_BACKUP_GPT_CRC_VALID")
     print("R68S_PARTITIONS_AND_HYBRID_MBR_VALID")
     print("R68S_ROCKCHIP_SPL_AND_FIT_LAYOUT_VALID")
@@ -178,14 +181,18 @@ def verify_stream(image):
 
 
 def verify(path):
-    with lzma.open(path, "rb") as image:
-        verify_stream(image)
+    if path.endswith(".img"):
+        with open(path, "rb") as image:
+            verify_stream(image, "RAW")
+    else:
+        with lzma.open(path, "rb") as image:
+            verify_stream(image)
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        raise SystemExit("Usage: check-image-gpt.py image.img.xz")
+        raise SystemExit("Usage: check-image-gpt.py <image.img.xz|image.img>")
     try:
         verify(sys.argv[1])
-    except (EOFError, lzma.LZMAError, ValueError) as exc:
+    except (EOFError, lzma.LZMAError, OSError, ValueError) as exc:
         raise SystemExit(f"R68S image verification failed: {exc}")
