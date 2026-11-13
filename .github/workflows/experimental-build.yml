@@ -141,7 +141,6 @@ jobs:
         run: |
           docker run --rm --privileged \
             -e BUILDER_UID="$(id -u)" -e BUILDER_GID="$(id -g)" \
-            -e BR2_USE_CCACHE=1 -e CCACHE_MAXSIZE=4G \
             -v "$PWD/haos:/build" -v "/mnt/cache:/cache" -v "/mnt/output:/build/output" \
             haos-builder:r68s make
 
@@ -151,7 +150,10 @@ jobs:
         run: |
           docker run --rm --privileged \
             -e BUILDER_UID="$(id -u)" -e BUILDER_GID="$(id -g)" \
-            -e BR2_USE_CCACHE=1 -e CCACHE_MAXSIZE=4G \
+            -v "$PWD/haos:/build" -v "/mnt/cache:/cache" -v "/mnt/output:/build/output" \
+            haos-builder:r68s make CCACHE_OPTIONS="--max-size=4G" ccache-options
+          docker run --rm --privileged \
+            -e BUILDER_UID="$(id -u)" -e BUILDER_GID="$(id -g)" \
             -v "$PWD/haos:/build" -v "/mnt/cache:/cache" -v "/mnt/output:/build/output" \
             haos-builder:r68s make ccache-stats | tee /mnt/output/ccache-stats.txt
           cat /mnt/output/ccache-stats.txt >> "$GITHUB_STEP_SUMMARY"
