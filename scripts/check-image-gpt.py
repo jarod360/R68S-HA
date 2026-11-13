@@ -42,7 +42,7 @@ def parse_gpt_header(raw, label):
         raise ValueError(f"{label} GPT partition geometry is invalid")
     if entry_size % 8:
         raise ValueError(f"{label} GPT entry size is invalid")
-    if first_usable > last_usable or last_usable >= alternate_lba:
+    if first_usable > last_usable or last_usable >= max(current_lba, alternate_lba):
         raise ValueError(f"{label} GPT usable-LBA range is invalid")
     return {
         "current_lba": current_lba, "alternate_lba": alternate_lba,
@@ -125,11 +125,14 @@ def verify_stream(image):
     fit_magic, fit_size = struct.unpack_from(">II", fit_header, 0)
     if fit_magic != 0xD00DFEED or not 40 <= fit_size <= UBOOT_PARTITION_SIZE:
         raise ValueError("Invalid U-Boot FIT/FDT header at eMMC 8 MiB")
-    fit = prefix[FIT_OFFSET:FIT_OFFSET + fit_size]
-    for marker in (b"lunzn,fastrhino-r68s", b"rk3568-fastrhino-r68s",
-                   b"u-boot,spl-boot-order", b"same-as-spl", b"/mmc@fe310000"):
+    uboot_partition = prefix[FIT_OFFSET:FIT_OFFSET + UBOOT_PARTITION_SIZE]
+    fit = uboot_partition[:fit_size]
+    for marker in (b"lunzn,fastrhino-r68s", b"rk3568-fastrhino-r68s"):
         if marker not in fit:
             raise ValueError(f"R68S U-Boot FIT metadata missing: {marker.decode()}")
+    for marker in (b"u-boot,spl-boot-order", b"same-as-spl", b"/mmc@fe310000"):
+        if marker not in uboot_partition:
+            raise ValueError(f"R68S U-Boot DTB boot-order metadata missing: {marker.decode()}")
 
     # Read to EOF so the XZ decoder validates the complete compressed stream.
     total_bytes = len(prefix)
