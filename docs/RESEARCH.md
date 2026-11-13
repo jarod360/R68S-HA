@@ -73,3 +73,57 @@
 6. 官方 HAOS 将 **ODROID-M1** 列为支持板型，未将 **FastRhino R68S** 列入受支持设备。此仓库只能提供 R68S 自行维护的构建与 OTA，不能保证在 HA 前端直接通过官方通道安全执行 Operating System 大版本升级。参考：[HAOS 支持列表](https://contributors.home-assistant.io/os/operating-system/boards/)。
 
 **下一步执行门槛**：先取得最新 Actions Run 完整成功，并核对 image + SHA256 + GPT/FIT/RAUC 校验；再对现役 R68S 做只读采样及恢复能力验证，最后才进入首刷。无需为文档核对重启或重刷设备。
+
+
+## 2026-11-13 本轮研究记录：R68S Linux DTS 与 Actions Run #14
+
+### 用户确认的排查边界
+
+- 用户已明确：R68S 硬件、eMMC、供电、USB 线缆及刷机环境均已通过此前两次路由器系统刷写验证；本项目当前不再把这些列为待排查方向，也不再要求用户重复验证。
+- MASKROM 是 Rockchip 救援下载模式，不是 HAOS 运行模式。设备断电后重新上电、蓝灯闪烁所观察到的 DHCP/MAC 变化，不能据此推断设备仍处于 MASKROM。
+- 最近一次 HAOS 镜像写入日志：`Written(765460480)`，约 730 MiB；先出现 Windows `err=995`，ResetPipe 成功后再出现 `err=31`，最终 `RKU_WriteLBA failed, RetCode(-3)`。用户已明确不再将 USB 线缆/硬件作为排查方向。该失败只证明当次完整镜像写入未完成，不可把该残缺镜像的启动表现作为正式 HAOS 启动测试。
+- 用户上传的 `MiniLoaderAll.bin`：465,344 bytes，SHA256 `6e951ade1632de76959ca8ba9ad8560f527ca91ad9a49dd9746f762e68de84ce`；字符串可见 DDR Version V1.11 20211103、LPDDR2/LPDDR3/LPDDR4/LPDDR4X。字符串扫描不构成 R68S 板级 DDR 参数兼容性证明；本轮不据此更换 Loader。
+
+### Linux v6.18 R68S DTS 对照结果
+
+核对文件：
+- [Linux v6.18 R68S DTS](https://github.com/torvalds/linux/blob/v6.18/arch/arm64/boot/dts/rockchip/rk3568-fastrhino-r68s.dts)
+- [Linux v6.18 共用 R66S/R68S DTSI](https://github.com/torvalds/linux/blob/v6.18/arch/arm64/boot/dts/rockchip/rk3568-fastrhino-r66s.dtsi)
+- [上游 PHY reset 修复提交 e261bd74000c](https://github.com/torvalds/linux/commit/e261bd74000ca80e5483ba8a8bda509de8cbe7fd)
+
+源码确认：
+1. R68S DTS 设置 model 为 `Lunzn FastRhino R68S`，compatible 为 `lunzn,fastrhino-r68s`、`rockchip,rk3568`。
+2. `gmac0` 和 `gmac1` 均使用 `rgmii-id`，分别关联 `rgmii_phy0`、`rgmii_phy1`。
+3. PHY 地址均为 MDIO address 1。
+4. PHY reset 已使用通用 PHY binding：GPIO1 PB0/PB1、active-low、assert 20ms、deassert 100ms；这正是 2024 年上游提交 e261bd74000c 修正的内容。
+5. 因此，不能再把“R68S 上游 DTS 缺少 PHY reset”当成当前根因；HAOS 固定的 Linux 6.18.63 应基于该上游 DTS，仍需从 Run #14 最终构建输出中的 DTB 实际反查属性，不能只看源文件。
+6. DTS 的 `ethernet0/ethernet1` aliases 指向两个 GMAC。当前该 DTS 本身没有为两路 GMAC 硬编码 `mac-address` 或 `local-mac-address`；实际 MAC 由 SoC/Bootloader/驱动的地址来源机制提供。不能仅凭此断言随机 MAC 是 DTS 故障。
+7. R68S DTS 从共用 DTSI 继承 PCIe、USB、PMIC、LED、按键等节点；本轮没有证据支持修改这些节点。
+
+### 当前仓库代码审查结论
+
+- `board/r68s/kernel.config` 中 `CONFIG_R8169=m`，Buildroot 选择 `BR2_PACKAGE_LINUX_FIRMWARE_RTL_8169=y`。必须在最终 rootfs 中确认 r8169 模块和 RTL8125B 所需固件实际安装，而不是只检查 Kconfig 字符串。
+- `scripts/check-build-configs.sh` 当前只验证 GMAC/PCIe 节点 `status=okay`，尚未验证最终 DTB 的 PHY 地址、reset GPIO/延迟、phy-mode、驱动模块及固件文件。后续应扩展为对最终产物的只读检查。
+- `board/r68s/meta` 中 `SUPERVISOR_MACHINE=odroid-m1` 仍是临时兼容映射，不代表官方支持；应继续检查它对 Supervisor/OS Agent 的影响，但不要在没有验证迁移方案前随意更改。
+- U-Boot SPL 从 eMMC sector `0x4000`（8 MiB）读取 FIT；此项已有配置和镜像静态检查，仍需与最终 Run #14 产物交叉验证。
+
+### 云编译缓存：Run #14 实测快照
+
+- 最新提交：`230bb32adca991d8c300244152973921f6525baf`（`ci: persist Buildroot caches and strengthen R68S image checks`）。
+- Actions Run #14：[#43338330075](https://github.com/jarod360/R68S-HA/actions/runs/43338330075)。
+- 读取日志时，HAOS 源码检出、R68S 集成、缓存恢复步骤、Buildx Builder 镜像构建、Buildroot 配置均成功；当前停留在 `Compile experimental image`。
+- 本次 `/mnt/cache/dl` 与 `/mnt/cache/cc` 的 actions/cache restore 均为 cache miss（无历史持久缓存，首次启用属预期），不能宣称 Buildroot 下载/ccache 已命中。
+- Docker Buildx GHA cache 成功导入已有 manifest，并完成 Builder 镜像构建及 cache export。该项与 Buildroot 的下载/编译缓存是两层不同缓存。
+- Buildroot 日志已显示编译命令使用 `/build/output/host/bin/ccache`，且 `/mnt/cache` 已挂载到容器 `/cache`；但最终命中率必须等 `ccache-stats` 步骤完成后才能判断。
+- 当前日志最后可见时间约为 2026-11-13 02:10:23 UTC，仍在编译 NFS utilities 相关目标；这只是日志快照，后续应重新查询 Run #14 状态，不能把该快照当作最终结果。
+
+### 下一步（按证据推进）
+
+1. 等待并检查 Run #14 完整结果、ccache 统计、Artifact 上传和 GPT/FIT/RAUC 验证。
+2. 下载 Run #14 最终镜像，只读解包最终 DTB、U-Boot FIT、boot script、kernel/rootfs 内容；对照本节记录逐项核验。
+3. 在最终 rootfs 中确认 `r8169.ko`（或对应压缩模块）及 RTL8125B firmware 文件；核对模块依赖和启动时自动加载配置。
+4. 扩展 `check-build-configs.sh`：从最终 DTB 检查 PHY reg、reset GPIO、assert/deassert 延迟、phy-mode；从最终 rootfs 检查 r8169 模块和固件。只增加有源码依据的断言。
+5. 检查 HAOS 首次启动脚本、systemd 服务、Data 分区格式化/挂载依赖与 watchdog 设置；将“启动失败重启”与“网卡重新申请 DHCP”分开，不依据残缺镜像的现象推断根因。
+6. 只有在源代码或最终产物证明配置缺失时才改代码；每次只做一个最小改动并触发构建验证。
+
+**本节状态：源码对照和 CI 状态读取已完成；尚未提交新的 DTS/驱动修改，也尚未获得 Run #14 最终构建产物。**
