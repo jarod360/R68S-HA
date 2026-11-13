@@ -56,6 +56,10 @@ jobs:
           sudo chown -R "$(id -u):$(id -g)" /mnt/cache /mnt/output
           df -h
 
+      - name: Set builder cache epoch
+        id: builder-cache-epoch
+        run: echo "week=$(date -u +%Y-%W)" >> "$GITHUB_OUTPUT"
+
       - name: Restore Buildroot download cache
         id: cache-dl
         uses: actions/cache/restore@v4
@@ -73,7 +77,7 @@ jobs:
         continue-on-error: true
         with:
           path: /mnt/cache/cc
-          key: ${{ runner.os }}-r68s-cc-${{ env.HAOS_SHA }}-${{ hashFiles('board/r68s/**', 'patches/**', 'scripts/prepare-haos.sh', 'haos/buildroot-external/configs/odroid_m1_defconfig', 'haos/buildroot-external/kernel/v6.18.y/**', 'haos/buildroot-external/bootloader/**') }}
+          key: ${{ runner.os }}-r68s-cc-${{ env.HAOS_SHA }}-${{ steps.builder-cache-epoch.outputs.week }}-${{ hashFiles('board/r68s/**', 'patches/**', 'scripts/prepare-haos.sh', 'haos/buildroot-external/configs/odroid_m1_defconfig', 'haos/buildroot-external/kernel/v6.18.y/**', 'haos/buildroot-external/bootloader/**') }}
           restore-keys: |
             ${{ runner.os }}-r68s-cc-${{ env.HAOS_SHA }}-
             ${{ runner.os }}-r68s-cc-
@@ -87,10 +91,6 @@ jobs:
             echo "- Buildroot ccache exact hit: ${{ steps.cache-cc.outputs.cache-hit || 'false' }}"
             echo "- Buildroot ccache restored key: ${{ steps.cache-cc.outputs.cache-matched-key || 'none' }}"
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Set builder cache epoch
-        id: builder-cache-epoch
-        run: echo "week=$(date -u +%Y-%W)" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -172,7 +172,7 @@ jobs:
         continue-on-error: true
         with:
           path: /mnt/cache/cc
-          key: ${{ runner.os }}-r68s-cc-${{ env.HAOS_SHA }}-${{ hashFiles('board/r68s/**', 'patches/**', 'scripts/prepare-haos.sh', 'haos/buildroot-external/configs/odroid_m1_defconfig', 'haos/buildroot-external/kernel/v6.18.y/**', 'haos/buildroot-external/bootloader/**') }}
+          key: ${{ runner.os }}-r68s-cc-${{ env.HAOS_SHA }}-${{ steps.builder-cache-epoch.outputs.week }}-${{ hashFiles('board/r68s/**', 'patches/**', 'scripts/prepare-haos.sh', 'haos/buildroot-external/configs/odroid_m1_defconfig', 'haos/buildroot-external/kernel/v6.18.y/**', 'haos/buildroot-external/bootloader/**') }}
 
       - name: Validate output presence and SHA256
         run: |
