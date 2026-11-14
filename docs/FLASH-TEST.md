@@ -2,7 +2,7 @@
 
 ## 首要结论
 
-**尚未有经实机启动验证的 R68S 原生 HAOS 镜像。** GitHub Actions 生成的 `UNVERIFIED-DO-NOT-FLASH` 仅是编译产物；首刷前必须按本清单完成准备与判断。若恢复路径未验证，**不应写入 eMMC**。
+**已在 R68S 上验证 HAOS 整盘刷写、启动和签名 A/B 更新。** 新构建仍需单独实测。当前安装指引与验收状态见 [安装与交接说明](HANDOFF.md)，下文保留各次测试记录。
 
 设备：R68S / RK3568 / 4GB RAM / 16GB 板载 eMMC / 无 SD 卡槽 / USB 3.0。此前飞牛 OS 可启动属于已有系统运行证据，不等于本项目 DDR TPL、SPL 和 U-Boot 适配已通过。
 

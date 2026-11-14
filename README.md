@@ -1,6 +1,6 @@
 # R68S-HA — FastRhino R68S Native Home Assistant OS
 
-**当前阶段：实验性适配，不能直接刷机。**
+**已在 R68S 4 GB / 16 GB eMMC 上完成原生 HAOS 19.0.dev0 刷写、重启和同版本签名 A/B 更新。** Recovery、刷机、后续 OTA 和已验证项目见 [安装与交接说明](docs/HANDOFF.md)。
 
 ## 目标设备
 
@@ -43,12 +43,8 @@ bash R68S-HA/scripts/prepare-haos.sh haos
 
 ## 已知风险
 
-- R68S 4GB 上曾有其他 OS 成功运行的实机经历，表明硬件可用；**但不能证明 ODROID-M1 的 DDR TPL 与 R68S 兼容**。
-- 必须验证 BootROM、DDR 初始化、SPL、U-Boot、eMMC 和完整 HAOS A/B 分区启动链。
-- 两个千兆及两个 2.5G 网口、USB 3.0、Supervisor、OS Agent、RAUC 升级/回滚仍需实机验证。
+- 新构建需单独验收。尚待验证的项目见 [实机验收状态](docs/HANDOFF.md#实机验收状态)。
 - 固件测试前必须备份整块 eMMC，并确认 Recovery/Maskrom 恢复路径。
 - 默认映射到 `odroid-m1` Supervisor 机器标识属于临时实验兼容方案，**不是官方 R68S 支持**。
 
 核查与验证日志见 [docs/RESEARCH.md](docs/RESEARCH.md)；[docs/FLASH-TEST.md](docs/FLASH-TEST.md) 是首次实机清单；[docs/UPDATE-STRATEGY.md](docs/UPDATE-STRATEGY.md) 说明持续适配官方 HAOS、A/B 更新和长期签名策略。
-
-**状态：源码适配及自动构建配置已提交；尚无实机测试通过的镜像。**
