@@ -8,6 +8,8 @@
 
 ## 首次安装或整盘恢复
 
+已刷 HAOS 的机器，如果还能通过串口进入 U-Boot，可用 `help rockusb` 确认该镜像是否支持 RockUSB。支持时，先用 `mmc list` 确认板载 eMMC 编号，再执行 `rockusb 0 mmc <编号>`，以 RKDevTool 是否识别 Loader 为准。当前 HAOS 的这条入口仍待实机验证。U-Boot 无法启动时，整盘恢复需走 Maskrom。
+
 1. 保存 HA 备份和整块 eMMC 备份，记录 SHA-256，准备已验证的原路由恢复镜像。整盘写入会覆盖现有系统和数据。
 2. 选择有实机记录的 R68S 全盘镜像，例如 [签名基线构建 43536849497](https://github.com/jarod360/R68S-HA/actions/runs/43536849497)。校验 SHA-256，再解压 `.img.xz` 得到原始 `.img`。每个新构建需单独验收。
 3. 在 Windows 安装 Rockchip DriverAssistant，打开 RKDevTool 2.86。若当前显示 Loader，在「高级功能」选择「进入 Maskrom」，等工具确认 MASKROM。
