@@ -1,0 +1,19 @@
+#!/bin/sh
+set -eu
+
+iface=$1
+increment=$2
+cid=/sys/class/block/mmcblk0/device/cid
+
+# Keep a permanent MAC if the driver has one.
+[ "$(cat "/sys/class/net/$iface/addr_assign_type")" != 0 ] || exit 0
+[ "$(cat /sys/class/block/mmcblk0/device/type 2>/dev/null)" = MMC ] || exit 0
+[ -r "$cid" ] || exit 0
+hash=$(sha256sum "$cid") || exit 0
+prefix=$(printf '%s' "$hash" | cut -c1-6)
+suffix=$(printf '%s' "$hash" | cut -c7-12)
+first=$(printf '%s' "$prefix" | cut -c1-2)
+oui=$(printf '%02x%s' "$(( (0x$first | 2) & 254 ))" "${prefix#??}")
+mac=$(printf '%s%06x' "$oui" "$(( (0x$suffix + increment) & 0xffffff ))" |
+    sed 's/../&:/g; s/:$//')
+exec /usr/sbin/ip link set dev "$iface" address "$mac"

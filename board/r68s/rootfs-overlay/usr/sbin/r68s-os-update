@@ -1,0 +1,62 @@
+#!/bin/sh
+set -eu
+
+# GitHub's latest endpoint excludes draft and prerelease builds.
+if [ "$#" -eq 1 ] && [ "$1" = --check ]; then
+    url=$(curl --fail --silent --show-error --location --proto '=https' \
+        --proto-redir '=https' --output /dev/null --write-out '%{url_effective}' \
+        https://github.com/jarod360/R68S-HA/releases/latest)
+    case "$url" in
+        https://github.com/jarod360/R68S-HA/releases/tag/r68s-*)
+            printf '%s\n' "${url##*/r68s-}"
+            ;;
+        *)
+            echo 'No stable R68S OS release found.' >&2
+            exit 1
+            ;;
+    esac
+    exit 0
+fi
+
+if [ "$#" -ne 1 ] || ! printf '%s\n' "$1" | grep -Eq '^[0-9]+\.[0-9]+(\.[0-9]+)?(\.(dev|rc)[0-9]+)?$'; then
+    echo 'Usage: r68s-os-update --check | VERSION' >&2
+    exit 2
+fi
+
+version=$1
+case "$version" in
+    *[!0-9.devrc]*) exit 2 ;;
+esac
+base="https://github.com/jarod360/R68S-HA/releases/download/r68s-$version"
+dtb=/mnt/boot/rk3568-fastrhino-r68s.dtb
+work=$(mktemp -d /mnt/data/r68s-ota.XXXXXXXX)
+trap 'rm -rf "$work"' EXIT
+trap 'exit 1' HUP INT TERM
+
+download() {
+    curl --fail --silent --show-error --location --proto '=https' \
+        --proto-redir '=https' --output "$work/$1" "$base/$1"
+}
+
+download R68S-DTB-SHA256
+expected=$(cut -d ' ' -f 1 "$work/R68S-DTB-SHA256")
+actual=$(sha256sum "$dtb")
+if [ "$expected" != "${actual%% *}" ]; then
+    echo 'The release DTB differs from the installed shared DTB.' >&2
+    exit 1
+fi
+
+bundle="haos_r68s-$version.raucb"
+download "$bundle"
+info=$(rauc info --output-format=shell "$work/$bundle")
+printf '%s\n' "$info" | grep -Fxq "RAUC_MF_VERSION='$version'"
+printf '%s\n' "$info" | grep -Fxq "RAUC_MF_COMPATIBLE='haos-r68s'"
+printf '%s\n' "$info" | grep -Fxq "RAUC_MF_IMAGES='2'"
+classes=$(printf '%s\n' "$info" | sed -n 's/^RAUC_IMAGE_CLASS_[0-9]*=//p' | sort)
+if [ "$classes" != "'kernel'
+'rootfs'" ]; then
+    echo 'Expected only kernel and rootfs images in the signed bundle.' >&2
+    exit 1
+fi
+rauc install "$work/$bundle"
+echo 'R68S update installed. Reboot to start the updated slot.'

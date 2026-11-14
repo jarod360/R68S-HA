@@ -244,6 +244,12 @@ jobs:
               /workspace/rel-ca-xsign-oldroot.cert.pem
           python3 scripts/check-image-gpt.py "${images[0]}"
           sha256sum "${images[0]}" | tee /mnt/output/images/SHA256SUMS-R68S-UNVERIFIED
+          # Existing installations keep their shared DTB during OTA.
+          # Record the candidate DTB so it can be compared before deployment.
+          (
+            cd /mnt/output/images
+            sha256sum rk3568-fastrhino-r68s.dtb > R68S-DTB-SHA256
+          )
           echo "IMAGE_BUILD_ONLY=1: NOT TESTED ON R68S; DO NOT FLASH"
 
       - name: Upload unverified build artifacts
@@ -253,6 +259,7 @@ jobs:
           path: |
             /mnt/output/images/haos_r68s-*.img.xz
             /mnt/output/images/SHA256SUMS-R68S-UNVERIFIED
+            /mnt/output/images/R68S-DTB-SHA256
             /mnt/output/ccache-stats.txt
           if-no-files-found: error
           retention-days: 7
@@ -262,7 +269,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: R68S-HAOS-SIGNED-OTA-UNVERIFIED
-          path: /mnt/output/images/haos_r68s-*.raucb
+          path: |
+            /mnt/output/images/haos_r68s-*.raucb
+            /mnt/output/images/R68S-DTB-SHA256
           if-no-files-found: error
           retention-days: 7
 

@@ -1,0 +1,2 @@
+ACTION=="add", SUBSYSTEM=="net", DRIVERS=="r8169", KERNELS=="0001:11:00.0", RUN+="/usr/libexec/r68s-port-mac $name 0"
+ACTION=="add", SUBSYSTEM=="net", DRIVERS=="r8169", KERNELS=="0002:21:00.0", RUN+="/usr/libexec/r68s-port-mac $name 1"

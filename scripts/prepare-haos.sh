@@ -36,6 +36,8 @@ cp "$REPO_ROOT/board/r68s/kernel.config" "$BOARD/kernel.config"
 cp "$REPO_ROOT/board/r68s/uboot.config" "$BOARD/uboot.config"
 cp -a "$REPO_ROOT/board/r68s/rootfs-overlay" "$BOARD/"
 chmod 0755 "$BOARD/rootfs-overlay/usr/libexec/r68s-port-leds"
+chmod 0755 "$BOARD/rootfs-overlay/usr/libexec/r68s-port-mac"
+chmod 0755 "$BOARD/rootfs-overlay/usr/sbin/r68s-os-update"
 cp "$REPO_ROOT"/patches/uboot/*.patch "$BOARD/patches/uboot/"
 cp "$REPO_ROOT"/patches/linux/*.patch "$BOARD/patches/linux/"
 sed -i 's/rk3568-odroid-m1\.dtb/rk3568-fastrhino-r68s.dtb/g' "$BOARD/uboot-boot.ush"
@@ -56,6 +58,13 @@ sed -i \
     -e 's|board/hardkernel/odroid-m1|board/fastrhino/r68s|g' \
     -e 's|BR2_LINUX_KERNEL_INTREE_DTS_NAME="rockchip/rk3568-odroid-m1"|BR2_LINUX_KERNEL_INTREE_DTS_NAME="rockchip/rk3568-fastrhino-r68s"|' \
     "$CONFIG"
+
+# Older stable HAOS releases only list the global patch directory.
+board_patches='$(BR2_EXTERNAL_HAOS_PATH)/board/fastrhino/r68s/patches'
+if ! grep '^BR2_GLOBAL_PATCH_DIR=' "$CONFIG" | grep -Fq "$board_patches"; then
+    sed -i '/^BR2_GLOBAL_PATCH_DIR=/s|"$| '"$board_patches"'"|' "$CONFIG"
+fi
+grep '^BR2_GLOBAL_PATCH_DIR=' "$CONFIG" | grep -Fq "$board_patches"
 
 # RTL8125B PCIe is already supported by Linux r8169 (module).
 # ODROID-M1 does not select rtl_nic/rtl8125b-2.fw: install Realtek Ethernet firmware.
