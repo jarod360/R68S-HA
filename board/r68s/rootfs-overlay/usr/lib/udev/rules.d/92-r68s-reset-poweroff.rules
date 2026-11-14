@@ -1,0 +1,1 @@
+ACTION=="add", SUBSYSTEM=="input", KERNEL=="event*", ENV{ID_PATH}=="platform-gpio-keys", TAG+="systemd", ENV{SYSTEMD_WANTS}+="r68s-reset-poweroff.service"

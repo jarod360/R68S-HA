@@ -1,0 +1,19 @@
+#!/bin/sh
+set -eu
+
+# arm64 input_event: 16-byte timestamp, 16-bit type/code and 32-bit value.
+exec 3< /dev/input/by-path/platform-gpio-keys-event
+pressed=false
+while event=$(dd bs=24 count=1 <&3 2>/dev/null | od -An -v -j16 -tu2); do
+    set -- $event
+    [ "$#" -eq 4 ] || exit 1
+    case "$1:$2:$3:$4" in
+        1:408:1:0) pressed=true ;;
+        1:408:0:0)
+            if "$pressed"; then
+                exec systemctl poweroff
+            fi
+            ;;
+    esac
+done
+exit 1

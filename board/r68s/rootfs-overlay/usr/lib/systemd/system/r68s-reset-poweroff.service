@@ -1,0 +1,5 @@
+[Unit]
+Description=Shut down R68S when Reset is pressed
+
+[Service]
+ExecStart=/usr/libexec/r68s-reset-poweroff
