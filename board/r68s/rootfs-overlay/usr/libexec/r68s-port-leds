@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+
+led="/sys/class/leds/$1"
+modprobe ledtrig-netdev
+printf '%s\n' netdev > "$led/trigger"
+for mode in link_10 link_100 link_1000 link_2500 rx tx; do
+    printf '1\n' > "$led/$mode"
+done

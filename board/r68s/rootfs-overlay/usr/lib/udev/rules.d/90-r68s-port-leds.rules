@@ -1,0 +1,1 @@
+ACTION=="add", SUBSYSTEM=="leds", KERNEL=="enP1p17s0-0::lan|enP2p33s0-0::lan", TAG+="systemd", ENV{SYSTEMD_WANTS}+="r68s-port-leds@%k.service"

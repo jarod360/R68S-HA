@@ -1,0 +1,6 @@
+[Unit]
+Description=Configure R68S 2.5GbE link and activity LEDs
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/r68s-port-leds %I

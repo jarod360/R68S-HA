@@ -143,3 +143,11 @@ NetworkManager 连接配置的 stable 值在重启后被恢复为 preserve。改
 用户已刷入 work 目录中的最新签名镜像。桌面串口日志显示 U-Boot 构建时间为 2026-11-14 01:54 UTC，两条 PCIe 链路均建立且 r8169 识别两颗 RTL8125B。运行中从 A 槽启动，两口均匹配镜像内 90-r68s-rtl8125.link，实际 MAC 分别为 32:41:e8:55:bb:b6、26:f2:3c:f7:61:80，分配类型均为 3。驱动早期的随机 MAC 已被替换。第一口协商 2.5 Gbps 全双工，地址 192.168.0.227，Windows 邻居表与实机 MAC 一致，HA HTTP 返回 302，Supervisor healthy/supported。第二口当时无载波，仍需用同一网线单独验证。重启持久性与 OTA 尚待实测。
 
 签名 OTA 实机测试：设备用内置 keyring 验证 Run 43536849497 的 verity 包，兼容型号 haos-r68s，包仅包含 kernel 和 rootfs。RAUC 成功写入 B 槽并设为下次启动槽。正常重启后串口确认从 B 槽启动，根文件系统来自 mmcblk0p6，数据仍在 mmcblk0p9。两口 MAC 与 A 槽完全一致，DHCP 再次分配 192.168.0.227，校时成功，Supervisor 健康。此为同版本 A→B 验证，自动回退和跨版本升级未验证。
+
+QWRT 的 R68S 网络初始化使用板载 eMMC CID 的 SHA-256 前六字节，将首字节设为本地管理单播，再将低 24 位加一获得 LAN 地址。实机 CID 复算得到 WAN 0e:d2:3f:c7:7b:a9、LAN 0e:d2:3f:c7:7b:aa，与旧机备份完全吻合。若采用旧地址规则，先实测 QWRT 的 WAN/LAN 与 HAOS PCIe 端口的映射，再只对两个 RTL8125B 分别赋值。QWRT 另外两个 LAN 口共享桥接配置的地址，HAOS 的独立端口应各自保留唯一地址。
+
+Run 43563261762 的 LED 测试包通过实机验签及 SHA-256 核对，成功从 B 写入 A 并启动。两个 2.5G 口保持原 MAC，第一口协商 2.5 Gbps，Windows 访问 HA 返回 302，Supervisor healthy/supported，NTP 已同步。驱动为两个接口各注册四个 LED。第一个接口的 LED0 手工设为 netdev 并启用 link_2500，读取 link_2500=1、offloaded=1。实际灯光及重启自动应用待验证。
+
+SanDisk 128 GB U 盘在当前 USB 口协商 5000 Mbps。只读传输 128 MiB 成功，约 56.7 MB/s，HAOS 将其列为外部数据盘候选。未写入或迁移。
+
+回退测试准备：实机 RAUC 记录确认 A 为 LED 测试构建，B 为此前已成功启动的签名构建。两个槽的内核和根文件系统均有不同的安装校验值，两个槽都标记为 good。当前引导顺序 A B，启动计数均为 3。共享引导脚本会跳过次数耗尽的槽。可先用启动计数验证槽位选择和回到旧系统，再另测内核启动失败或看门狗触发导致的完整自动回退。当前 A 槽保留临时 LED 控制设置供观察，尚未执行回退重启。
