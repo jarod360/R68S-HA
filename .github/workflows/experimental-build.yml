@@ -1,6 +1,8 @@
 name: R68S experimental HAOS build
 
 on:
+  schedule:
+    - cron: '23 3 * * *'
   push:
     branches: [main]
     paths:
@@ -23,21 +25,48 @@ permissions:
   contents: read
 
 jobs:
+  upstream:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-22.04
+    outputs:
+      sha: ${{ steps.release.outputs.sha }}
+      built: ${{ steps.previous.outputs.cache-hit }}
+    steps:
+      - name: Resolve the official stable release to a commit
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh api repos/home-assistant/operating-system/releases/latest --jq '.tag_name')
+          [[ "$tag" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]
+          sha=$(gh api "repos/home-assistant/operating-system/commits/$tag" --jq '.sha')
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+      - name: Check for a previous successful signed build
+        id: previous
+        uses: actions/cache/restore@v4
+        with:
+          path: r68s-build-ok
+          key: r68s-signed-${{ steps.release.outputs.sha }}-${{ github.sha }}
+          lookup-only: true
+
   build:
+    needs: upstream
+    if: ${{ !cancelled() && (github.event_name != 'schedule' || (needs.upstream.result == 'success' && needs.upstream.outputs.built != 'true')) }}
     runs-on: ubuntu-22.04
     timeout-minutes: 360
     concurrency:
       group: r68s-haos-build
-      cancel-in-progress: true
+      cancel-in-progress: false
     env:
-      HAOS_SHA: ${{ inputs.haos_sha || '945ba38d88e7e7d7321d42294b222b8deb2208d2' }}
+      HAOS_SHA: ${{ needs.upstream.outputs.sha || inputs.haos_sha || '945ba38d88e7e7d7321d42294b222b8deb2208d2' }}
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
 
       - name: Check OTA signing prerequisites
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.require_ota }}
+        if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.require_ota) }}
         env:
           R68S_KEY_B64: ${{ secrets.R68S_RAUC_KEY_PEM_B64 }}
           R68S_CERT_B64: ${{ secrets.R68S_RAUC_CERT_PEM_B64 }}
@@ -240,3 +269,14 @@ jobs:
       - name: Remove private signing key from workspace
         if: always()
         run: rm -f haos/key.pem
+
+      - name: Record successful scheduled build
+        if: github.event_name == 'schedule'
+        run: printf '%s\n' "$HAOS_SHA" > r68s-build-ok
+
+      - name: Skip duplicate scheduled builds
+        if: github.event_name == 'schedule'
+        uses: actions/cache/save@v4
+        with:
+          path: r68s-build-ok
+          key: r68s-signed-${{ needs.upstream.outputs.sha }}-${{ github.sha }}

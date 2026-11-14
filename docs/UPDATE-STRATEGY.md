@@ -39,14 +39,11 @@
 
 官方 `rauc.sh` 没有找到 `/build/key.pem` 时会在每次构建生成新的临时开发证书。首次刷机若使用这种证书，后续构建的 OTA 包可能不被旧设备信任。
 
-操作方式：
-- 在 Windows **`D:\Codex\R68S-HA\signing`** 使用可信 OpenSSL 生成并保存长期的私钥 `key.pem`、公用证书 `cert.pem`；私钥不得提交 GitHub，也不得发进聊天。
-- 分别对两个 PEM 文件进行 **Base64 编码**，以 GitHub Actions Secrets `R68S_RAUC_KEY_PEM_B64` 与 `R68S_RAUC_CERT_PEM_B64` 保存。
-- 工作流用同一证书构建首次安装镜像及所有后续 R68S OTA 包；证书包含在已安装系统的 RAUC 信任链中，私钥仅在构建环境中使用。
-- 若未配置这两个 secrets，工作流仍可生成**实验性首次刷机镜像**，但不提供宣称可长期升级的 OTA Artifact。
+长期密钥和证书由 GitHub Actions Secrets `R68S_RAUC_KEY_PEM_B64` 和 `R68S_RAUC_CERT_PEM_B64` 保管。构建任务临时解码，并在任务结束后清理私钥。签名材料不提交 Git，也不在工作电脑保存。更换签名身份前，需要为已安装设备安排信任链迁移。
 
-注意：私钥的备份、过期更换、泄露后的吊销，以及迁移新证书均需单独规划。**首次刷机后才更换根证书，不会让已经安装的设备自动信任它。**
+默认分支每天检查官方最新稳定版，解析为完整提交 SHA，以 R68S 配置构建。已通过签名和产物检查的同一源码组合使用缓存标记去重。实验产物由 Actions 保存，实机通过后再把已签名的 R68S 更新包上传到本仓库 GitHub Releases。
 
+设备从本仓库 Releases 下载对应的 R68S 更新包。将包传到设备后，在 HAOS 主机控制台执行 `rauc info /mnt/data/update.raucb` 核对兼容型号，再执行 `rauc install /mnt/data/update.raucb`。安装成功后重启检查启动槽和 HA 状态。HA 官方更新界面目前仍使用官方版本通道。
 ## 为什么不建议在 HA 页面直接点官方 Operating System 更新
 
 当前系统的 `SUPERVISOR_MACHINE=odroid-m1` 只是为了使用现有 aarch64 容器镜像。Supervisor 根据 `CPE/BOARD_ID=r68s` 识别系统板型，下载链接可能以 R68S 路径生成；即使某些页面沿用 ODROID-M1 的版本信息，官方版本服务器并没有 R68S 的已验证固件和下载链。
