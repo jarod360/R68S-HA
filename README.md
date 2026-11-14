@@ -5,10 +5,22 @@
 ## 部署与日常使用
 
 1. 首次安装或恢复时，先把 HA 完整备份导出到另一台设备，再按交接说明使用 RKDevTool 和 R68S 整盘镜像刷入 eMMC。整盘刷机会覆盖系统和数据。 [刷机与恢复步骤](docs/HANDOFF.md#首次安装或整盘恢复)
-2. 首次启动接入有 DHCP 和互联网的网络，从路由器查到 R68S 的 IP 后打开 `http://设备IP:8123`。等待 Core 下载完成；也可用 `http://设备IP:4357` 查看 Supervisor Observer。欢迎页可新建系统或恢复已有 HA 备份。
+2. 首次启动接入有 DHCP 和互联网的网络，首次创建交换文件可能需要约两分钟。从路由器查到 R68S 的 IP 后打开 `http://设备IP:8123`。等待 Core 下载完成；也可用 `http://设备IP:4357` 查看 Supervisor Observer。欢迎页可新建系统或恢复已有 HA 备份。
 3. 已安装签名版的设备，从 HAOS 主机控制台运行 `r68s-os-update --check` 查询稳定发布，运行 `r68s-os-update <版本>` 下载自有仓库的签名 OS 包。安装完成后重启并确认 HA 恢复。测试预发行版可按 Release 说明显式指定版本。Core、Supervisor 和应用使用 Home Assistant 官方渠道。 [R68S Releases](https://github.com/jarod360/R68S-HA/releases)
 
 短按 Reset 已验证可正常关机。按住 Recovery 上电实测进入 MASKROM，按键进入 LOADER 仍待验证。
+
+## 实机验收
+
+| 项目 | 实测结果 |
+| --- | --- |
+| 整盘安装 | 19.0.dev2 写入 16 GB eMMC 后从 A 槽正常启动。引导区读回与镜像一致，HA 网页有响应，Supervisor 健康。 |
+| 有线网络 | 两个 2.5G 口和两个千兆口逐口协商到额定速率并访问 HA。两个 2.5G 口使用板载 eMMC CID 生成稳定 MAC，指示灯随系统启动自动配置。 |
+| USB | 128 GB U 盘以 5 Gbps 枚举，FAT 和 NTFS 通过文件读写验证。 |
+| 系统更新 | 从自有仓库下载并验签，19.0.dev0 → dev1 → dev2 实机启动成功。启动次数耗尽时已验证备用槽选择。 |
+| 按键 | 短按 Reset 后系统停止 Supervisor 并卸载文件系统。按住 Recovery 上电实测进入 MASKROM，松开后正常上电可恢复 HA。 |
+
+测试镜像与安装说明见 [19.0.dev2 构建](https://github.com/jarod360/R68S-HA/actions/runs/43614088019) 和 [签名 OTA Release](https://github.com/jarod360/R68S-HA/releases/tag/r68s-19.0.dev2)。已有 HAOS 时优先使用签名 OTA。需要更新 U-Boot 时，按整盘刷写流程备份、刷入并恢复数据。
 
 ## 目标硬件
 
@@ -16,19 +28,19 @@
 - **没有 SD 卡槽**；支持 USB 3.0
 - **原生 HAOS**（Buildroot、Supervisor、OS Agent、Docker 和 RAUC），不是普通 Linux 下的 Container 安装
 
-## 唯一移植基础
+## 移植基础
 
 1. **[官方 Home Assistant OS — ODROID-M1 RK3568](https://github.com/home-assistant/operating-system/tree/dev/buildroot-external/board/hardkernel/odroid-m1)**：继承 Buildroot、HAOS 分区、引导逻辑、RAUC 和系统更新。
 2. **[Linux 主线 R68S DTS](https://github.com/torvalds/linux/blob/v6.18/arch/arm64/boot/dts/rockchip/rk3568-fastrhino-r68s.dts)**：直接编译适用于 R68S 的主线设备树。
 3. **[U-Boot 主线 v2026.04](https://github.com/u-boot/u-boot/tree/v2026.04)**：以 ODROID-M1 的 RK3568 配置为基础，禁用 M1 的 SPI 引导模式，采用 R68S eMMC 启动并使用主线 DTS。
 
-**不使用第三方 Linux 内核、外部驱动或预编译 Bootloader。**
+Linux 和 U-Boot 从源码构建。Rockchip DDR 初始化组件由构建流程引入。
 
 ## 最小差异
 
 - `board/r68s/kernel.config`：补足 RK3568 GMAC、eMMC 内建驱动；2.5G PCIe 使用官方 HAOS 内置 `r8169`。
 - `board/r68s/uboot.config`：将 ODROID-M1 U-Boot 的 SPI 启动改为 R68S 所需的 eMMC 模式，切换到通用 RK3568 板级初始化，使用 R68S DTS。
-- `patches/uboot/`：只补充 R68S SPL 的 eMMC 启动顺序；不覆盖主线驱动。
+- `patches/uboot/`：配置 SPL 的 eMMC 启动顺序、Recovery 按键检测和 RockUSB 入口。
 - `scripts/prepare-haos.sh`：对固定版本的官方 HAOS 进行板级适配，保留官方磁盘布局。
 - `scripts/check-image-gpt.py`：编译后验证 GPT 结构、CRC、分区清单、标称 16GB 容量及 8MiB U-Boot FIT 位置。
 
