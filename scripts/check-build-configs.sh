@@ -53,6 +53,7 @@ check "$linux" 'CONFIG_DWMAC_ROCKCHIP=y'
 check "$linux" 'CONFIG_MMC_SDHCI_OF_DWCMSHC=y'
 check "$linux" 'CONFIG_PCIE_ROCKCHIP_DW_HOST=y'
 check "$linux" 'CONFIG_R8169=m'
+check "$linux" 'CONFIG_R8169_LEDS=y'
 check "$linux" 'CONFIG_DW_WATCHDOG=y'
 fdtget="$out/host/bin/fdtget"
 dtb="$out/images/rk3568-fastrhino-r68s.dtb"
