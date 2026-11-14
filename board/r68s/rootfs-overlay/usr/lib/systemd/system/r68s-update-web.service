@@ -1,0 +1,8 @@
+[Unit]
+Description=Process requests from the R68S HA update app
+RequiresMountsFor=/mnt/data
+
+[Service]
+Type=oneshot
+TimeoutStartSec=30min
+ExecStart=/usr/libexec/r68s-update-web

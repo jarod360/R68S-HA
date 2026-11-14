@@ -1,0 +1,64 @@
+#!/bin/sh
+set -eu
+
+supervisor=/mnt/data/supervisor
+app="$supervisor/apps/local/r68s_update"
+config="$supervisor/app_configs/local_r68s_update"
+if [ ! -f "$app/config.yaml" ]; then
+    mkdir -p "$app"
+    cp /usr/share/r68s-update-app/* "$app/"
+fi
+[ -d "$config" ] && [ ! -L "$config" ] || exit 0
+
+current=$(sed -n 's/^VERSION_ID=//p' /etc/os-release | tr -d '"')
+action=check
+if [ -e "$config/install" ]; then
+    action=install
+elif [ ! -e "$config/check" ] && [ -e "$config/status" ]; then
+    # Keep an accepted install visible until reboot, and refresh checks hourly.
+    [ ! -e /run/r68s-web-update-pending ] || exit 0
+    [ -n "$(find "$config/status" -maxdepth 0 -mmin +59 -print)" ] || exit 0
+fi
+rm -f "$config/check" "$config/install"
+[ ! -e /run/r68s-web-update-pending ] || exit 0
+
+write_status() {
+    tmp=$(mktemp /mnt/data/.r68s-update-status.XXXXXXXX)
+    printf '%s\n' "$@" > "$tmp"
+    chmod 0644 "$tmp"
+    mv -fT "$tmp" "$config/status"
+}
+
+if ! latest=$(r68s-os-update --check); then
+    write_status "当前版本 $current" "暂未找到正式发布的 R68S 系统更新。"
+    exit 0
+fi
+if ! awk -v latest="$latest" -v current="$current" '
+    function parse(v, a,    n) {
+        if (v !~ /^[0-9]+\.[0-9]+(\.[0-9]+)?(\.(dev|rc)[0-9]+)?$/) return 0
+        n = split(v, a, /[.]/)
+        if (n < 3 || a[3] ~ /^(dev|rc)/) { a[4] = a[3]; a[3] = 0 }
+        a[5] = a[4] ~ /^dev/ ? 0 : a[4] ~ /^rc/ ? 1 : 2
+        sub(/^(dev|rc)/, "", a[4])
+        return 1
+    }
+    BEGIN {
+        if (!parse(latest, l) || !parse(current, c)) exit 1
+        for (i = 1; i <= 5; i++) {
+            j = (i == 4 ? 5 : i == 5 ? 4 : i)
+            if (l[j]+0 != c[j]+0) exit !(l[j]+0 > c[j]+0)
+        }
+        exit 1
+    }'; then
+    write_status "当前版本 $current" "系统已是最新版本。"
+elif [ "$action" = install ]; then
+    write_status "正在下载和安装 $latest，完成后刷新查看结果。"
+    if r68s-os-update "$latest"; then
+        touch /run/r68s-web-update-pending
+        write_status "已安装 $latest。请从 HA 系统页面重启设备。"
+    else
+        write_status "安装 $latest 失败。请查看主机日志中的设备树、下载或验签错误。"
+    fi
+else
+    write_status "当前版本 $current" "仓库最新版本 $latest"
+fi
