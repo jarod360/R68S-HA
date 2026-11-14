@@ -23,16 +23,16 @@
 
 已签名的 R68S RAUC 包写入备用槽，重启后切换。Core、Supervisor 和应用从 Home Assistant 官方渠道更新。自有仓库仅提供 Operating System 的签名包，签名私钥存于 GitHub Actions Secrets。
 
-合并版提供 `r68s-os-update --check` 查询稳定 Release，以及 `r68s-os-update VERSION` 按版本安装。实机已用 `r68s-os-update 19.0.dev0` 从测试 Release 下载并验签，成功从 B 槽写入 A 槽并重启。两个 2.5G 口的 CID MAC 在两槽启动中一致。两口 LED 服务在开机时写入失败，稍后重试成功，已将服务排序与重试修复并入下一版。下一版用 19.0.dev1 验证版本推进。按键恢复则使用同次构建的整盘镜像手动刷入后验收。 [测试 Release](https://github.com/jarod360/R68S-HA/releases/tag/r68s-19.0.dev0)
+合并版提供 `r68s-os-update --check` 查询稳定 Release，以及 `r68s-os-update VERSION` 按版本安装。实机已用 `r68s-os-update 19.0.dev0` 从测试 Release 下载并验签，成功从 B 槽写入 A 槽并重启。两个 2.5G 口的 CID MAC 在两槽启动中一致。两口 LED 服务在开机时写入失败，稍后重试成功，已将服务排序与重试修复并入下一版。实机随后从自有仓库执行 19.0.dev0 → 19.0.dev1 签名 OTA，重启进入 B 槽。两个 2.5G 口保持 CID MAC，LED 服务均在开机时成功，Supervisor 健康，HA 返回 HTTP 302。按键恢复使用同次构建的整盘镜像手动刷入后验收。 [19.0.dev1 测试 Release](https://github.com/jarod360/R68S-HA/releases/tag/r68s-19.0.dev1) [测试 Release](https://github.com/jarod360/R68S-HA/releases/tag/r68s-19.0.dev0)
 
 ## 实机验收状态
 
 | 项目 | 已验证 | 待验证 |
 | --- | --- | --- |
 | 启动与 HA | 整盘安装、正常重启、HA 网页响应、Supervisor 健康；内核识别约 3.83 GiB 可用内存 | 合并版启动验收 |
-| 2.5G 网口 | 两口均协商 2.5 Gbps 全双工并可访问 HA；两槽开机自动应用相同的 CID MAC；两口 LED 配置支持硬件卸载 | 下一版开机自动点灯 |
+| 2.5G 网口 | 两口均协商 2.5 Gbps 全双工并可访问 HA；两槽开机自动应用相同的 CID MAC；两口 LED 配置支持硬件卸载 | 已通过 19.0.dev1 开机点灯验收 |
 | 千兆网口 | 两口都识别 RTL8211F，分别协商 1 Gbps 全双工并可访问 HA | 长时间满载稳定性 |
 | 128 GB USB | USB 3.0 以 5 Gbps 枚举，NTFS 和 FAT 只读挂载通过；FAT 小文件写入、读回校验和清理通过 | HA 数据迁移 |
-| A/B 更新与回退 | 同版本签名包 A→B、B→A 均启动；将 A 剩余次数置零后自动选 B，再切回 A | 实际启动故障触发回退；自有仓库跨版本更新 |
+| A/B 更新与回退 | 同版本签名包 A→B、B→A 均启动；将 A 剩余次数置零后自动选 B，再切回 A | 实际启动故障触发回退；自有仓库跨版本更新已通过 |
 
 详细日志见 [刷机验证记录](FLASH-TEST.md)。接手后从合并版构建产物核对签名及设备树，安装到备用槽，检查重启后 MAC、LED、网络、Supervisor 和 HA，再验证测试 Release。
