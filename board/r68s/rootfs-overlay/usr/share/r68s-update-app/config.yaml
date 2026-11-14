@@ -1,0 +1,13 @@
+name: R68S OS Update
+slug: r68s_update
+version: "1.0.0"
+description: Install signed R68S Operating System updates
+arch: [aarch64]
+startup: application
+boot: auto
+ingress: true
+panel_admin: true
+panel_icon: mdi:update
+map:
+  - type: app_config
+    read_only: false

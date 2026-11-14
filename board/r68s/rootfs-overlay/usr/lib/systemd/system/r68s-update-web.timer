@@ -1,0 +1,9 @@
+[Unit]
+Description=Check for requests from the R68S HA update app
+
+[Timer]
+OnBootSec=20s
+OnUnitInactiveSec=5s
+
+[Install]
+WantedBy=timers.target
