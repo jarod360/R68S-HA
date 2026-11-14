@@ -40,3 +40,5 @@
 2026-11-14 20:16，RKDevTool 2.86 已记录 19.0.dev1 从 LBA 0 整盘写入成功（ret=1）。实机首启完成交换文件创建与网络初始化，两口 LED 服务均报告成功。按键进入 Maskrom 及其后恢复正常启动仍待验收。
 
 Recovery 复测中，dev1 串口确认按键识别成功，但写入 BootROM 下载标志后反复复位回到 eMMC。原路由固件优先使用 RockUSB Loader。已在现有 HAOS U-Boot 手动运行 rockusb 0 mmc 0，Windows 识别 Rockusb Device，串口退出后重新启动 eMMC。下一版将该入口接到 Recovery 键，按键自动进入仍待刷入实测。
+
+2026-11-15，RKDevTool 2.86 记录 19.0.dev2 从 LBA 0 整盘写入成功。用户确认只按住 Recovery 上电时工具显示 MASKROM。随后正常上电，从 A 槽启动 19.0.dev2，8–9 MiB 引导区 SHA-256 与镜像一致，Supervisor healthy/supported，HA 及 Observer 有响应。按键直进 LOADER 尚未复现。此前在 dev2 OTA 后短按 Reset，上一轮日志确认系统进入关机、停止 Supervisor 并卸载文件系统。

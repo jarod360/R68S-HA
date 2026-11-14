@@ -1,8 +1,16 @@
 # R68S-HA — FastRhino R68S Native Home Assistant OS
 
-**已在 R68S 4 GB / 16 GB eMMC 上完成原生 HAOS 19.0.dev0 刷写、重启和同版本签名 A/B 更新。** Recovery、刷机、后续 OTA 和已验证项目见 [安装与交接说明](docs/HANDOFF.md)。
+**已在 R68S 4 GB / 16 GB eMMC 上完成原生 HAOS 19.0.dev2 整盘刷写和正常启动，并通过自有仓库的跨版本签名 OTA。** Recovery、刷机、后续 OTA 和已验证项目见 [安装与交接说明](docs/HANDOFF.md)。
 
-## 目标设备
+## 部署与日常使用
+
+1. 首次安装或恢复时，先把 HA 完整备份导出到另一台设备，再按交接说明使用 RKDevTool 和 R68S 整盘镜像刷入 eMMC。整盘刷机会覆盖系统和数据。 [刷机与恢复步骤](docs/HANDOFF.md#首次安装或整盘恢复)
+2. 首次启动接入有 DHCP 和互联网的网络，从路由器查到 R68S 的 IP 后打开 `http://设备IP:8123`。等待 Core 下载完成；也可用 `http://设备IP:4357` 查看 Supervisor Observer。欢迎页可新建系统或恢复已有 HA 备份。
+3. 已安装签名版的设备，从 HAOS 主机控制台运行 `r68s-os-update --check` 查询稳定发布，运行 `r68s-os-update <版本>` 下载自有仓库的签名 OS 包。安装完成后重启并确认 HA 恢复。测试预发行版可按 Release 说明显式指定版本。Core、Supervisor 和应用使用 Home Assistant 官方渠道。 [R68S Releases](https://github.com/jarod360/R68S-HA/releases)
+
+短按 Reset 已验证可正常关机。按住 Recovery 上电实测进入 MASKROM，按键进入 LOADER 仍待验证。
+
+## 目标硬件
 
 - FastRhino R68S / RK3568 / **4GB RAM + 16GB eMMC**
 - **没有 SD 卡槽**；支持 USB 3.0
@@ -41,7 +49,14 @@ bash R68S-HA/scripts/prepare-haos.sh haos
 # 使用 HAOS 官方 Docker builder 进行 make r68s-config 与 make 编译
 ```
 
-## 已知风险
+## 适配官方 HAOS 大版本
+
+1. 选定官方稳定 tag，解析为完整的 40 位提交 SHA。在 Actions 手动运行 `R68S experimental HAOS build`，填入 `haos_sha`，启用 `require_ota`。默认分支上的定时任务也会检查官方稳定版并生成候选产物。 [构建工作流](https://github.com/jarod360/R68S-HA/actions/workflows/experimental-build.yml)
+2. 如果上游目录、ODROID-M1 配置或镜像模板变更，先对比上一次已通过实测的 HAOS 提交。调整 `scripts/prepare-haos.sh` 中的配置匹配和板级文件复制，按需要更新 `board/r68s/`、`patches/linux/`、`patches/uboot/`。如果 RAUC 模板变更，同步修改 `scripts/configure-safe-ota.py` 和产物校验。
+3. 编译后核对 R68S 设备树、GPT/FIT、签名和 A/B 槽内容。用旧版实机验证 OTA、重启、HA 数据和回退。如果设备树校验不同，普通 OTA 会拒绝安装。涉及 U-Boot 或共享启动区的变更，另行验收整盘镜像和恢复路径。
+4. 实机通过后，将签名 `.raucb` 和 `R68S-DTB-SHA256` 发布到对应的 `r68s-<版本>` Release。签名身份继续由仓库的 GitHub Actions Secrets 提供。 [更新方案与验收清单](docs/UPDATE-STRATEGY.md)
+
+## 使用限制
 
 - 新构建需单独验收。尚待验证的项目见 [实机验收状态](docs/HANDOFF.md#实机验收状态)。
 - 固件测试前必须备份整块 eMMC，并确认 Recovery/Maskrom 恢复路径。
