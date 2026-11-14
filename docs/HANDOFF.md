@@ -38,3 +38,5 @@
 详细日志见 [刷机验证记录](FLASH-TEST.md)。接手后从合并版构建产物核对签名及设备树，安装到备用槽，检查重启后 MAC、LED、网络、Supervisor 和 HA，再验证测试 Release。
 
 2026-11-14 20:16，RKDevTool 2.86 已记录 19.0.dev1 从 LBA 0 整盘写入成功（ret=1）。实机首启完成交换文件创建与网络初始化，两口 LED 服务均报告成功。按键进入 Maskrom 及其后恢复正常启动仍待验收。
+
+Recovery 复测中，dev1 串口确认按键识别成功，但写入 BootROM 下载标志后反复复位回到 eMMC。原路由固件优先使用 RockUSB Loader。已在现有 HAOS U-Boot 手动运行 rockusb 0 mmc 0，Windows 识别 Rockusb Device，串口退出后重新启动 eMMC。下一版将该入口接到 Recovery 键，按键自动进入仍待刷入实测。

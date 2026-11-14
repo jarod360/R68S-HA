@@ -1,0 +1,17 @@
+diff --git a/arch/arm/mach-rockchip/boot_mode.c b/arch/arm/mach-rockchip/boot_mode.c
+--- a/arch/arm/mach-rockchip/boot_mode.c
++++ b/arch/arm/mach-rockchip/boot_mode.c
+@@ -74,6 +74,13 @@
+ void rockchip_dnl_mode_check(void)
+ {
+ 	if (rockchip_dnl_key_pressed()) {
++		if (IS_ENABLED(CONFIG_CMD_ROCKUSB) &&
++		    ofnode_device_is_compatible(ofnode_root(),
++						"lunzn,fastrhino-r68s")) {
++			puts("R68S Recovery pressed, starting RockUSB Loader\n");
++			run_command("rockusb 0 mmc 0", 0);
++			return;
++		}
+ 		printf("download key pressed, entering download mode...");
+ 		set_back_to_bootrom_dnl_flag();
+ 		do_reset(NULL, 0, 0, NULL);
