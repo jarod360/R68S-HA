@@ -20,6 +20,10 @@ on:
         description: 'Require persistent signing and a verified OTA bundle'
         type: boolean
         default: true
+      development_revision:
+        description: 'Optional R68S dev revision for OTA testing on a pinned development source'
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -89,7 +93,16 @@ jobs:
           git apply --numstat patches/linux/0001-r68s-enable-hardware-watchdog.patch
 
       - name: Apply R68S board integration
-        run: bash scripts/prepare-haos.sh haos "$HAOS_SHA"
+        env:
+          R68S_DEV_REVISION: ${{ inputs.development_revision }}
+        run: |
+          set -euo pipefail
+          bash scripts/prepare-haos.sh haos "$HAOS_SHA"
+          if [[ -n "$R68S_DEV_REVISION" ]]; then
+            [[ "$R68S_DEV_REVISION" =~ ^dev[1-9][0-9]*$ ]]
+            grep -Fxq 'VERSION_SUFFIX="dev0"' haos/buildroot-external/meta
+            sed -i "s/^VERSION_SUFFIX=\"dev0\"$/VERSION_SUFFIX=\"$R68S_DEV_REVISION\"/" haos/buildroot-external/meta
+          fi
 
       - name: Prepare build space
         run: |

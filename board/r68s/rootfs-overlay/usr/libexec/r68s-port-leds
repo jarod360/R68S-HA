@@ -3,7 +3,19 @@ set -eu
 
 led="/sys/class/leds/$1"
 modprobe ledtrig-netdev
-printf '%s\n' netdev > "$led/trigger"
-for mode in link_10 link_100 link_1000 link_2500 rx tx; do
-    printf '1\n' > "$led/$mode"
+
+configure_trigger() {
+    printf '%s\n' netdev > "$led/trigger" || return 1
+    for mode in link_10 link_100 link_1000 link_2500 rx tx; do
+        printf '1\n' > "$led/$mode" || return 1
+    done
+}
+
+# LED add events can precede completion of network device initialization.
+for attempt in 1 2 3 4 5 6 7 8 9 10; do
+    if configure_trigger 2>/dev/null; then
+        exit 0
+    fi
+    sleep 1
 done
+configure_trigger

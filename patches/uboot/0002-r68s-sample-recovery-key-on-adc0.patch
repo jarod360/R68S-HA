@@ -1,0 +1,21 @@
+diff --git a/arch/arm/mach-rockchip/boot_mode.c b/arch/arm/mach-rockchip/boot_mode.c
+--- a/arch/arm/mach-rockchip/boot_mode.c
++++ b/arch/arm/mach-rockchip/boot_mode.c
+@@ -41,5 +41,8 @@ __weak int rockchip_dnl_key_pressed(void)
+ 	struct udevice *dev;
+ 	struct uclass *uc;
++	/* R68S wires Recovery to SARADC channel 0. */
++	int channel = ofnode_device_is_compatible(ofnode_root(),
++						  "lunzn,fastrhino-r68s") ? 0 : 1;
+ 	int ret;
+ 
+ 	ret = uclass_get(UCLASS_ADC, &uc);
+@@ -50,7 +53,7 @@ __weak int rockchip_dnl_key_pressed(void)
+ 	ret = -ENODEV;
+ 	uclass_foreach_dev(dev, uc) {
+ 		if (!strncmp(dev->name, "saradc", 6)) {
+-			ret = adc_channel_single_shot(dev->name, 1, &val);
++			ret = adc_channel_single_shot(dev->name, channel, &val);
+ 			break;
+ 		}
+ 	}

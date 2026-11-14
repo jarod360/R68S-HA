@@ -4,7 +4,9 @@
 
 ## Recovery 进入 Loader
 
-实机刷回原路由固件 QWRT 后，通过 Recovery 进入过 Loader 1.01。操作时先让 R68S 断电，连接电脑与设备的 USB 刷机口，按住 Recovery 再接入 12 V 电源。约两秒后松手，查看 RKDevTool 是否显示发现 LOADER 设备。两秒是 Armbian 给出的操作参考，实际模式以工具显示为准。已刷 HAOS 或 eMMC 引导损坏时，Recovery 能否进入 Loader 尚未验证。若工具直接显示 MASKROM，按下节的 Maskrom 步骤继续。 [Armbian R68S 说明](https://github.com/ophub/amlogic-s9xxx-armbian/blob/7c3d671d11063fe9d2a40fe91bbd2dc5aa01e8ea/documents/README.md#823-installation-method-for-fastrhino-r68s)
+实机刷回原路由固件 QWRT 后，通过 Recovery 进入过 Loader 1.01。操作时先让 R68S 断电，连接电脑与设备的 USB 刷机口，按住 Recovery 再接入 12 V 电源。约两秒后松手，查看 RKDevTool 是否显示发现 LOADER 设备。两秒是 Armbian 给出的操作参考，实际模式以工具显示为准。若工具显示 MASKROM，按下节继续。 [Armbian R68S 说明](https://github.com/ophub/amlogic-s9xxx-armbian/blob/7c3d671d11063fe9d2a40fe91bbd2dc5aa01e8ea/documents/README.md#823-installation-method-for-fastrhino-r68s)
+
+现有 HAOS 已由用户实测按住 Recovery 上电，RKDevTool 未识别 Loader 或 Maskrom。使用后置触点仍可进入 Maskrom。原路由固件按键可进 Loader，飞牛按键可进 Maskrom。R68S 的设备树将 Recovery 定义在 SARADC 通道 0，而当前 U-Boot 的通用恢复逻辑读取通道 1。候选修复在 U-Boot 中启用 SARADC，并在 R68S 上改读通道 0，沿用 BootROM 下载模式的复位流程。实机验收需要写入包含该修复的引导区。现有签名 OTA 仅写内核和根文件系统槽。
 
 ## 首次安装或整盘恢复
 
@@ -21,15 +23,15 @@
 
 已签名的 R68S RAUC 包写入备用槽，重启后切换。Core、Supervisor 和应用从 Home Assistant 官方渠道更新。自有仓库仅提供 Operating System 的签名包，签名私钥存于 GitHub Actions Secrets。
 
-合并候选版提供 `r68s-os-update --check` 查询稳定 Release，以及 `r68s-os-update VERSION` 按版本安装。安装入口核对共享设备树 SHA-256，并验证签名、版本、型号和内核与根文件系统两项内容。当前构建会上传签名包与设备树校验文件到 Actions。测试 Release 下载、跨版本安装和启动仍待实测。 [合并版构建](https://github.com/jarod360/R68S-HA/actions/runs/43571281080)
+合并版提供 `r68s-os-update --check` 查询稳定 Release，以及 `r68s-os-update VERSION` 按版本安装。实机已用 `r68s-os-update 19.0.dev0` 从测试 Release 下载并验签，成功从 B 槽写入 A 槽并重启。两个 2.5G 口的 CID MAC 在两槽启动中一致。两口 LED 服务在开机时写入失败，稍后重试成功，已将服务排序与重试修复并入下一版。下一版用 19.0.dev1 验证版本推进。按键恢复则使用同次构建的整盘镜像手动刷入后验收。 [测试 Release](https://github.com/jarod360/R68S-HA/releases/tag/r68s-19.0.dev0)
 
 ## 实机验收状态
 
 | 项目 | 已验证 | 待验证 |
 | --- | --- | --- |
 | 启动与 HA | 整盘安装、正常重启、HA 网页响应、Supervisor 健康；内核识别约 3.83 GiB 可用内存 | 合并版启动验收 |
-| 2.5G 网口 | 两口均识别；第一口协商 2.5 Gbps 全双工并可访问 HA；两口临时赋值符合 QWRT 的 eMMC CID 规则；两口 LED 配置支持硬件卸载 | 合并版重启后自动固定 MAC 和点灯；第二口接线收发 |
-| 千兆网口 | 两口都识别 RTL8211F PHY | 逐口协商与收发 |
+| 2.5G 网口 | 两口均协商 2.5 Gbps 全双工并可访问 HA；两槽开机自动应用相同的 CID MAC；两口 LED 配置支持硬件卸载 | 下一版开机自动点灯 |
+| 千兆网口 | 两口都识别 RTL8211F，分别协商 1 Gbps 全双工并可访问 HA | 长时间满载稳定性 |
 | 128 GB USB | USB 3.0 以 5 Gbps 枚举，NTFS 和 FAT 只读挂载通过；FAT 小文件写入、读回校验和清理通过 | HA 数据迁移 |
 | A/B 更新与回退 | 同版本签名包 A→B、B→A 均启动；将 A 剩余次数置零后自动选 B，再切回 A | 实际启动故障触发回退；自有仓库跨版本更新 |
 

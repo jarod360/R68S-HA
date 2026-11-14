@@ -1,5 +1,6 @@
 [Unit]
 Description=Configure R68S 2.5GbE link and activity LEDs
+After=NetworkManager.service
 
 [Service]
 Type=oneshot
