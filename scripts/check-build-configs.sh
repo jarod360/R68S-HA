@@ -20,6 +20,9 @@ check() {
   grep -Fqx "$2" "$1" || { echo "Expected '$2' in $1" >&2; exit 1; }
 }
 check "$out/.config" 'BR2_PACKAGE_LINUX_FIRMWARE_RTL_8169=y'
+mac_link="$out/target/usr/lib/systemd/network/90-r68s-rtl8125.link"
+check "$mac_link" 'Driver=r8169'
+check "$mac_link" 'MACAddressPolicy=persistent'
 check "$uboot" 'CONFIG_DEFAULT_DEVICE_TREE="rockchip/rk3568-fastrhino-r68s"'
 check "$uboot" 'CONFIG_OF_LIST="rockchip/rk3568-fastrhino-r68s"'
 check "$uboot" 'CONFIG_SPL_OF_LIST="rockchip/rk3568-fastrhino-r68s"'

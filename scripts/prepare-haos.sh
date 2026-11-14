@@ -34,6 +34,7 @@ cp "$REPO_ROOT/board/r68s/meta" "$BOARD/meta"
 printf 'console=ttyS2,1500000n8\n' > "$BOARD/cmdline.txt"
 cp "$REPO_ROOT/board/r68s/kernel.config" "$BOARD/kernel.config"
 cp "$REPO_ROOT/board/r68s/uboot.config" "$BOARD/uboot.config"
+cp -a "$REPO_ROOT/board/r68s/rootfs-overlay" "$BOARD/"
 cp "$REPO_ROOT"/patches/uboot/*.patch "$BOARD/patches/uboot/"
 cp "$REPO_ROOT"/patches/linux/*.patch "$BOARD/patches/linux/"
 sed -i 's/rk3568-odroid-m1\.dtb/rk3568-fastrhino-r68s.dtb/g' "$BOARD/uboot-boot.ush"
@@ -58,6 +59,11 @@ sed -i \
 # RTL8125B PCIe is already supported by Linux r8169 (module).
 # ODROID-M1 does not select rtl_nic/rtl8125b-2.fw: install Realtek Ethernet firmware.
 printf '\nBR2_PACKAGE_LINUX_FIRMWARE_RTL_8169=y\n' >> "$CONFIG"
+
+# Apply stable, per-device MAC addresses to RTL8125 adapters with random MACs.
+overlay='BR2_ROOTFS_OVERLAY="$(BR2_EXTERNAL_HAOS_PATH)/rootfs-overlay"'
+grep -Fxq "$overlay" "$CONFIG"
+sed -i '/^BR2_ROOTFS_OVERLAY=/s|"$| $(BR2_EXTERNAL_HAOS_PATH)/board/fastrhino/r68s/rootfs-overlay"|' "$CONFIG"
 
 grep -Fq 'BR2_PACKAGE_LINUX_FIRMWARE_RTL_8169=y' "$CONFIG"
 grep -Fq 'BR2_LINUX_KERNEL_INTREE_DTS_NAME="rockchip/rk3568-fastrhino-r68s"' "$CONFIG"

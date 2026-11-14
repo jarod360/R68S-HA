@@ -14,6 +14,10 @@ on:
         description: 'Reviewed 40-character commit SHA from official HAOS'
         required: true
         default: '945ba38d88e7e7d7321d42294b222b8deb2208d2'
+      require_ota:
+        description: 'Require persistent signing and a verified OTA bundle'
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -31,6 +35,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+
+      - name: Check OTA signing prerequisites
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.require_ota }}
+        env:
+          R68S_KEY_B64: ${{ secrets.R68S_RAUC_KEY_PEM_B64 }}
+          R68S_CERT_B64: ${{ secrets.R68S_RAUC_CERT_PEM_B64 }}
+        run: |
+          if [[ -z "$R68S_KEY_B64" || -z "$R68S_CERT_B64" ]]; then
+            echo "::error::Configure both R68S RAUC signing secrets before requesting an OTA build."
+            exit 1
+          fi
 
       - name: Checkout pinned official HAOS source
         run: |
