@@ -62,6 +62,8 @@ Actions 在上传签名 OTA 前，将候选设备树哈希与已实机验证的 
 
 ### 槽内 DTB 实机验收
 
+2026-11-15，第 26 次构建通过 SSH 验证一次旧机迁移。先替换候选 `boot.scr`，原有 dev4 从 A 槽使用共享 DTB 启动；再验签并安装 dev5 到 B 槽，启动参数显示 `rauc.slot=B` 和 `r68s.slot_dtb=1`，Supervisor 和 Core 正常。保留 B 槽启动优先级并将其剩余尝试次数置零后，设备自动回到 dev4 的 A 槽，随后恢复原启动脚本。两份 DTB 的哈希相同。不同 DTB 和实际启动故障仍待验证。 [第 26 次构建](https://github.com/jarod360/R68S-HA/actions/runs/43673125363)
+
 在有完整 HA 备份、共享启动分区备份和已确认的 MASKROM 恢复路径的测试机上进行。实验签名包及候选 `boot.scr` 存放在 `R68S-SLOT-DTB-LAB-DO-NOT-PUBLISH`。
 
 1. 用实验整盘镜像首次启动，说明中的常规 SSH 验收通过后，确认 `/proc/cmdline` 同时显示正确的 `rauc.slot=` 和 `r68s.slot_dtb=1`。用串口核对日志里的内核分区号和加载来源。
