@@ -277,6 +277,15 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Require the verified shared R68S device tree for OTA
+        if: env.OTA_SIGNING_READY == 'true'
+        run: |
+          if ! cmp -s board/r68s/verified-shared-dtb.sha256 /mnt/output/images/R68S-DTB-SHA256; then
+            echo "::error::R68S shared DTB changed. Signed OTA artifact withheld; the full image remains available for hardware testing."
+            diff -u board/r68s/verified-shared-dtb.sha256 /mnt/output/images/R68S-DTB-SHA256 || true
+            exit 1
+          fi
+
       - name: Upload R68S-only signed OTA bundle
         if: env.OTA_SIGNING_READY == 'true'
         uses: actions/upload-artifact@v4

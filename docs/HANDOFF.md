@@ -23,6 +23,34 @@
 
 日常升级在 HA 侧栏打开「系统更新」，点击「检查更新」，有新版时安装并按页面提示重启。维护人员发布新版见 [手动发布 OTA](UPDATE-STRATEGY.md#手动发布-ota)。
 
+### SSH 远程验收
+
+在和 R68S 同一局域网的电脑上连接 HAOS 主机 SSH，端口为 `22222`，使用 `root` 加公钥登录。首次启用时，可以把公钥按官方说明导入，支持的 Supervisor 也可通过其授权的 API 添加公钥。私钥保存在电脑上。 [HAOS 主机 SSH 启用说明](https://contributors.home-assistant.io/os/operating-system/debugging/#ssh-on-port-22222)
+
+```sh
+ssh -p 22222 root@设备IP
+```
+
+首次升级前，先导出 HA 完整备份到另一台设备。用下列只读命令记录当前版本、启动槽、共享设备树哈希、网口和 USB 状态。OTA 发布附件 `R68S-DTB-SHA256` 的首列应与设备上的哈希一致。
+
+```sh
+grep '^VERSION_ID=' /etc/os-release
+rauc status
+sha256sum /mnt/boot/rk3568-fastrhino-r68s.dtb
+ha supervisor info
+ha core info
+ha network info
+lsblk -o NAME,SIZE,TRAN,FSTYPE,MOUNTPOINTS
+```
+
+从 HA 网页安装并重启后，重新连接 SSH，重复检查以上命令，再看本次启动告警：
+
+```sh
+journalctl -b -p warning --no-pager
+```
+
+验收时确认目标 OS 版本、实际启动槽和预期一致，Supervisor 与 Core 正常，HA 网页和原数据可用，常用网口及已接入的 USB 磁盘正常。若设备最终从旧槽启动，保留现场状态并检查 `journalctl --list-boots`，再读取候选启动轮次的日志。若设备无法联网，早期启动、Recovery 和 MASKROM 仍需用串口或现场验收。
+
 已签名的 R68S RAUC 包写入备用槽，重启后切换。Core、Supervisor 和应用从 Home Assistant 官方渠道更新。自有仓库仅提供 Operating System 的签名包，签名私钥存于 GitHub Actions Secrets。
 
 合并版提供 `r68s-os-update --check` 查询稳定 Release，以及 `r68s-os-update VERSION` 按版本安装。实机已用 `r68s-os-update 19.0.dev0` 从测试 Release 下载并验签，成功从 B 槽写入 A 槽并重启。两个 2.5G 口的 CID MAC 在两槽启动中一致。两口 LED 服务在开机时写入失败，稍后重试成功，已将服务排序与重试修复并入下一版。实机随后从自有仓库执行 19.0.dev0 → 19.0.dev1 签名 OTA，重启进入 B 槽。两个 2.5G 口保持 CID MAC，LED 服务均在开机时成功，Supervisor 健康，HA 返回 HTTP 302。按键恢复使用同次构建的整盘镜像手动刷入后验收。 [19.0.dev1 测试 Release](https://github.com/jarod360/R68S-HA/releases/tag/r68s-19.0.dev1) [测试 Release](https://github.com/jarod360/R68S-HA/releases/tag/r68s-19.0.dev0)

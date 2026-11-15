@@ -8,6 +8,8 @@
 
 应用从本仓库的 GitHub Latest Release 检查 R68S OS 版本。点击「检查更新」，找到更高版本后点击「安装最新版」，等待安装完成，再从 HA 系统页面重启。Core、Supervisor 和其他应用继续从 Home Assistant 自己的渠道更新。
 
+升级前后可以通过局域网 SSH 验收，无需拆机。共享设备树有变化时，构建会拦截签名 OTA 产物。 [SSH 远程验收](docs/HANDOFF.md#ssh-远程验收) · [共享设备树与大版本](docs/UPDATE-STRATEGY.md#共享设备树与大版本)
+
 从 dev3 OTA 到 dev4 后，若侧栏仍显示旧名称，请重新加载应用商店，并在本地应用详情更新到 1.1.0。dev3 签名 OTA、重启及更新应用后台请求已经实机验证，dev4 网页升级待实机验收。
 
 ## 部署与日常使用
