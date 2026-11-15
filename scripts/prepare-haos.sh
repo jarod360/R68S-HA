@@ -91,6 +91,9 @@ grep -Fq 'BOARD_ID=r68s' "$BOARD/meta"
 # Keep the full first-flash image, but never ship shared bootloader/boot files
 # inside an Operating System A/B update bundle.
 python3 "$REPO_ROOT/scripts/configure-safe-ota.py" "$EXT" "$BOARD"
+if [ "${R68S_SLOT_DTB:-0}" = 1 ]; then
+    python3 "$REPO_ROOT/scripts/configure-slot-dtb.py" "$EXT" "$BOARD"
+fi
 
 echo "R68S_EXPERIMENTAL_SOURCE_READY=1"
 echo "WARNING: no R68S 4GB boot-chain or flashing validation has been completed"
