@@ -21,6 +21,8 @@
 
 ## 已安装设备的 OS 更新
 
+日常升级在 HA 侧栏打开「系统更新」，点击「检查更新」，有新版时安装并按页面提示重启。维护人员发布新版见 [手动发布 OTA](UPDATE-STRATEGY.md#手动发布-ota)。
+
 已签名的 R68S RAUC 包写入备用槽，重启后切换。Core、Supervisor 和应用从 Home Assistant 官方渠道更新。自有仓库仅提供 Operating System 的签名包，签名私钥存于 GitHub Actions Secrets。
 
 合并版提供 `r68s-os-update --check` 查询稳定 Release，以及 `r68s-os-update VERSION` 按版本安装。实机已用 `r68s-os-update 19.0.dev0` 从测试 Release 下载并验签，成功从 B 槽写入 A 槽并重启。两个 2.5G 口的 CID MAC 在两槽启动中一致。两口 LED 服务在开机时写入失败，稍后重试成功，已将服务排序与重试修复并入下一版。实机随后从自有仓库执行 19.0.dev0 → 19.0.dev1 签名 OTA，重启进入 B 槽。两个 2.5G 口保持 CID MAC，LED 服务均在开机时成功，Supervisor 健康，HA 返回 HTTP 302。按键恢复使用同次构建的整盘镜像手动刷入后验收。 [19.0.dev1 测试 Release](https://github.com/jarod360/R68S-HA/releases/tag/r68s-19.0.dev1) [测试 Release](https://github.com/jarod360/R68S-HA/releases/tag/r68s-19.0.dev0)

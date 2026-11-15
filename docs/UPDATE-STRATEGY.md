@@ -43,12 +43,21 @@
 
 默认分支每天检查官方最新稳定版，解析为完整提交 SHA，以 R68S 配置构建。已通过签名和产物检查的同一源码组合使用缓存标记去重。实验产物由 Actions 保存，实机通过后再把已签名的 R68S 更新包上传到本仓库 GitHub Releases。
 
-设备从本仓库 Releases 下载对应的 R68S 更新包。将包传到设备后，在 HAOS 主机控制台执行 `rauc info /mnt/data/update.raucb` 核对兼容型号，再执行 `rauc install /mnt/data/update.raucb`。安装成功后重启检查启动槽和 HA 状态。HA 官方更新界面目前仍使用官方版本通道。
+## 手动发布 OTA
+
+定时任务负责生成签名候选包。维护人员完成实机验收后，再将该构建设为可供 HA 网页检测的 Latest Release。
+
+1. 打开 [GitHub Actions](https://github.com/jarod360/R68S-HA/actions/workflows/experimental-build.yml) 的成功构建，在 **Artifacts** 下载并解压 `R68S-HAOS-SIGNED-OTA-UNVERIFIED`。取出同一次构建的 `haos_r68s-<版本>.raucb` 和 `R68S-DTB-SHA256`，保留文件名。
+2. 打开 [新建 Release](https://github.com/jarod360/R68S-HA/releases/new)，创建或选择 `r68s-<版本>` 标签，指向这次 Actions 构建使用的 **R68S 仓库提交**。标签版本必须与 OTA 包一致。例如 `haos_r68s-19.0.dev4.raucb` 对应 `r68s-19.0.dev4`。
+3. 在 Release 说明填写版本变更和实机验收结果，将两个文件上传为独立附件。取消勾选 **This is a pre-release**，勾选 **Set as latest release**，点击 **Publish release**。已有 Release 可进入编辑页，核对附件后调整相同选项，并点击 **Update release**。
+4. 打开 [仓库 Latest 页面](https://github.com/jarod360/R68S-HA/releases/latest)，确认跳转到目标标签，并确认两个附件都能下载。用运行较低版本的 R68S 在 HA「系统更新」中点击「检查更新」，核对目标版本。完成安装后从 HA 系统页面重启，检查版本、启动槽和 HA 状态。
+
+需要单独验收的候选包可保留为 GitHub 预发行版，并在 HAOS 主机控制台执行 `r68s-os-update <版本>` 安装。两种安装方式均校验共享设备树及 RAUC 签名。
 ## 为什么不建议在 HA 页面直接点官方 Operating System 更新
 
 当前系统的 `SUPERVISOR_MACHINE=odroid-m1` 只是为了使用现有 aarch64 容器镜像。Supervisor 根据 `CPE/BOARD_ID=r68s` 识别系统板型，下载链接可能以 R68S 路径生成；即使某些页面沿用 ODROID-M1 的版本信息，官方版本服务器并没有 R68S 的已验证固件和下载链。
 
-RAUC `compatible=haos-r68s` 可以阻止 `haos-odroid-m1` 误装，但**不能提供 R68S 官方 OTA 发布渠道**。在真正打通自己的版本服务和签名发布流程前，不要点击页面里的 Operating System 更新。Core、Supervisor 的普通容器更新仍可按原机制执行。
+R68S 的签名 OTA 由本仓库 Release 提供，在 HA 侧栏「系统更新」应用中发起。RAUC 使用 `compatible=haos-r68s` 核对目标机型。Core 和 Supervisor 继续通过 HA 官方渠道更新。
 
 ## A/B 失败重启：硬件看门狗差异
 

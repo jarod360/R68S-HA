@@ -74,7 +74,7 @@ bash R68S-HA/scripts/prepare-haos.sh haos
 1. 选定官方稳定 tag，解析为完整的 40 位提交 SHA。在 Actions 手动运行 `R68S experimental HAOS build`，填入 `haos_sha`，启用 `require_ota`。默认分支上的定时任务也会检查官方稳定版并生成候选产物。 [构建工作流](https://github.com/jarod360/R68S-HA/actions/workflows/experimental-build.yml)
 2. 如果上游目录、ODROID-M1 配置或镜像模板变更，先对比上一次已通过实测的 HAOS 提交。调整 `scripts/prepare-haos.sh` 中的配置匹配和板级文件复制，按需要更新 `board/r68s/`、`patches/linux/`、`patches/uboot/`。如果 RAUC 模板变更，同步修改 `scripts/configure-safe-ota.py` 和产物校验。
 3. 编译后核对 R68S 设备树、GPT/FIT、签名和 A/B 槽内容。用旧版实机验证 OTA、重启、HA 数据和回退。如果设备树校验不同，普通 OTA 会拒绝安装。涉及 U-Boot 或共享启动区的变更，另行验收整盘镜像和恢复路径。
-4. 实机通过后，将签名 `.raucb` 和 `R68S-DTB-SHA256` 发布到对应的 `r68s-<版本>` Release。签名身份继续由仓库的 GitHub Actions Secrets 提供。 [更新方案与验收清单](docs/UPDATE-STRATEGY.md)
+4. 实机通过后，将签名 OTA 包和配套设备树校验文件手动发布为 **Latest Release**，HA 的「系统更新」就能检查到新版。 [手动发布 OTA 步骤](docs/UPDATE-STRATEGY.md#手动发布-ota) · [验收清单](docs/UPDATE-STRATEGY.md#验证条件)
 
 ## 使用限制
 
