@@ -1,6 +1,6 @@
-name: R68S OS Update
+name: 系统更新
 slug: r68s_update
-version: "1.0.0"
+version: "1.1.0"
 description: Install signed R68S Operating System updates
 arch: [aarch64]
 startup: application

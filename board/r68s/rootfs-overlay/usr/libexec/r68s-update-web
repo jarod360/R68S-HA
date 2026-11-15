@@ -4,9 +4,11 @@ set -eu
 supervisor=/mnt/data/supervisor
 app="$supervisor/apps/local/r68s_update"
 config="$supervisor/app_configs/local_r68s_update"
-if [ ! -f "$app/config.yaml" ]; then
+source=/usr/share/r68s-update-app
+if ! cmp -s "$source/config.yaml" "$app/config.yaml"; then
     mkdir -p "$app"
-    cp /usr/share/r68s-update-app/* "$app/"
+    cp "$source"/Dockerfile "$source"/server.py "$app/"
+    cp "$source"/config.yaml "$app/"
 fi
 [ -d "$config" ] && [ ! -L "$config" ] || exit 0
 
@@ -14,7 +16,8 @@ current=$(sed -n 's/^VERSION_ID=//p' /etc/os-release | tr -d '"')
 action=check
 if [ -e "$config/install" ]; then
     action=install
-elif [ ! -e "$config/check" ] && [ -e "$config/status" ]; then
+elif [ ! -e "$config/check" ] && [ -e "$config/status" ] &&
+    [ "$(head -n 1 "$config/status")" = "当前版本 $current" ]; then
     # Keep an accepted install visible until reboot, and refresh checks hourly.
     [ ! -e /run/r68s-web-update-pending ] || exit 0
     [ -n "$(find "$config/status" -maxdepth 0 -mmin +59 -print)" ] || exit 0
@@ -52,12 +55,12 @@ if ! awk -v latest="$latest" -v current="$current" '
     }'; then
     write_status "当前版本 $current" "系统已是最新版本。"
 elif [ "$action" = install ]; then
-    write_status "正在下载和安装 $latest，完成后刷新查看结果。"
+    write_status "当前版本 $current" "正在下载和安装 $latest。"
     if r68s-os-update "$latest"; then
         touch /run/r68s-web-update-pending
-        write_status "已安装 $latest。请从 HA 系统页面重启设备。"
+        write_status "当前版本 $current" "已安装 $latest。请从 HA 系统页面重启设备。"
     else
-        write_status "安装 $latest 失败。请查看主机日志中的设备树、下载或验签错误。"
+        write_status "当前版本 $current" "安装 $latest 失败。请查看主机日志中的设备树、下载或验签错误。"
     fi
 else
     write_status "当前版本 $current" "仓库最新版本 $latest"
