@@ -56,6 +56,10 @@ compatible = info.get("RAUC_MF_COMPATIBLE")
 if compatible != "haos-r68s":
     raise SystemExit(f"Unexpected update compatibility: {compatible!r}")
 
+version = info.get("RAUC_MF_VERSION")
+if not version or bundle.name != f"haos_r68s-{version}.raucb":
+    raise SystemExit(f"Bundle filename does not match its signed version: {version!r}")
+
 try:
     image_count = int(info.get("RAUC_MF_IMAGES", "-1"))
 except ValueError:

@@ -41,11 +41,13 @@
 
 长期密钥和证书由 GitHub Actions Secrets `R68S_RAUC_KEY_PEM_B64` 和 `R68S_RAUC_CERT_PEM_B64` 保管。构建任务临时解码，并在任务结束后清理私钥。签名材料不提交 Git，也不在工作电脑保存。更换签名身份前，需要为已安装设备安排信任链迁移。
 
-默认分支每天检查官方最新稳定版，解析为完整提交 SHA，以 R68S 配置构建。已通过签名和产物检查的同一源码组合使用缓存标记去重。实验产物由 Actions 保存，实机通过后再把已签名的 R68S 更新包上传到本仓库 GitHub Releases。
+默认分支每天北京时间 11:23 检查官方最新稳定版，解析为完整提交 SHA，以 R68S 配置构建。GitHub 调度可能延迟。签名、机型、分区及共享 DTB 检查通过后，工作流创建 Release 草稿并上传两个 OTA 附件。草稿准备完成后记录该源码组合，供后续定时构建去重。
 
 ## 手动发布 OTA
 
-定时任务负责生成签名候选包。维护人员完成实机验收后，再将该构建设为可供 HA 网页检测的 Latest Release。
+定时构建成功后，进入 [Releases](https://github.com/jarod360/R68S-HA/releases) 打开对应草稿，核对上游版本、构建记录以及签名包和 DTB 两个附件。完成实机验收后，取消勾选 **This is a pre-release**，勾选 **Set as latest release**，再点击 **Publish release**。草稿期间设备上的「系统更新」读到的是当前已发布的 Latest。设备发现新版后，由用户在 HA 中安装并重启。
+
+手动运行的开发版、分支推送和独立 DTB 实验构建走 Actions 产物。需要手动创建 Release 时，按下面的步骤操作。
 
 1. 打开 [GitHub Actions](https://github.com/jarod360/R68S-HA/actions/workflows/experimental-build.yml) 的成功构建，在 **Artifacts** 下载并解压 `R68S-HAOS-SIGNED-OTA-UNVERIFIED`。取出同一次构建的 `haos_r68s-<版本>.raucb` 和 `R68S-DTB-SHA256`，保留文件名。
 2. 打开 [新建 Release](https://github.com/jarod360/R68S-HA/releases/new)，创建或选择 `r68s-<版本>` 标签，指向这次 Actions 构建使用的 **R68S 仓库提交**。标签版本必须与 OTA 包一致。例如 `haos_r68s-19.0.dev4.raucb` 对应 `r68s-19.0.dev4`。

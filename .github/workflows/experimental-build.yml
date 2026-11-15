@@ -38,6 +38,7 @@ jobs:
     runs-on: ubuntu-22.04
     outputs:
       sha: ${{ steps.release.outputs.sha }}
+      version: ${{ steps.release.outputs.version }}
       built: ${{ steps.previous.outputs.cache-hit }}
     steps:
       - name: Resolve the official stable release to a commit
@@ -50,6 +51,7 @@ jobs:
           sha=$(gh api "repos/home-assistant/operating-system/commits/$tag" --jq '.sha')
           [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "version=$tag" >> "$GITHUB_OUTPUT"
       - name: Check for a previous successful signed build
         id: previous
         uses: actions/cache/restore@v4
@@ -326,12 +328,36 @@ jobs:
         if: always()
         run: rm -f haos/key.pem
 
+  draft-release:
+    needs: [upstream, build]
+    if: github.event_name == 'schedule' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    concurrency:
+      group: r68s-release-${{ needs.upstream.outputs.version }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: R68S-HAOS-SIGNED-OTA-UNVERIFIED
+          path: signed-ota
+      - name: Prepare signed OTA release draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HAOS_SHA: ${{ needs.upstream.outputs.sha }}
+          HAOS_VERSION: ${{ needs.upstream.outputs.version }}
+        run: bash scripts/draft-ota-release.sh signed-ota
+
       - name: Record successful scheduled build
-        if: github.event_name == 'schedule'
+        env:
+          HAOS_SHA: ${{ needs.upstream.outputs.sha }}
         run: printf '%s\n' "$HAOS_SHA" > r68s-build-ok
 
       - name: Skip duplicate scheduled builds
-        if: github.event_name == 'schedule'
         uses: actions/cache/save@v4
         with:
           path: r68s-build-ok
