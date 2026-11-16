@@ -1,0 +1,84 @@
+name: R68S 18.5 槽内设备树验收包
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  repack:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: 下载已有 R68S 18.5 签名包
+        uses: actions/download-artifact@v4
+        with:
+          name: R68S-HAOS-SIGNED-OTA-UNVERIFIED
+          run-id: 43707806409
+          github-token: ${{ github.token }}
+          path: stable
+      - name: 下载已实机验证的启动脚本及槽内 DTB
+        uses: actions/download-artifact@v4
+        with:
+          name: R68S-SLOT-DTB-LAB-DO-NOT-PUBLISH
+          run-id: 43673125363
+          github-token: ${{ github.token }}
+          path: lab
+      - name: 安装重新打包工具
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rauc squashfs-tools device-tree-compiler
+      - name: 重新打包、签名和验证
+        env:
+          R68S_KEY_B64: ${{ secrets.R68S_RAUC_KEY_PEM_B64 }}
+          R68S_CERT_B64: ${{ secrets.R68S_RAUC_CERT_PEM_B64 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          sign_dir=$(mktemp -d)
+          trap 'rm -f "$sign_dir/key.pem" "$sign_dir/cert.pem"; rmdir "$sign_dir"' EXIT
+          printf '%s' "$R68S_KEY_B64" | base64 -d > "$sign_dir/key.pem"
+          printf '%s' "$R68S_CERT_B64" | base64 -d > "$sign_dir/cert.pem"
+
+          stable=stable/haos_r68s-18.5.raucb
+          lab=lab/haos_r68s-19.0.dev5.raucb
+          cat <<EOF | sha256sum -c -
+          16caa91f2018193d8bd252f50477c918bc87b28bbbbf9153a019d2fcf1f0e681  $stable
+          9b6439dfabb8dba73cf04fae872e799b5066201307d91739f981a1ad8e37101b  $lab
+          488a651c7a2abfa11b559b1edb06688978104394726f69b505b41017565a8401  lab/boot.scr
+          EOF
+          rauc --keyring="$sign_dir/cert.pem" info "$stable"
+          rauc --keyring="$sign_dir/cert.pem" info "$lab"
+          unsquashfs -no-progress -d bundle "$stable"
+          unsquashfs -no-progress -d lab-bundle "$lab" kernel.img
+          unsquashfs -no-progress -d kernel bundle/kernel.img
+          dtb=rk3568-fastrhino-r68s.dtb
+          unsquashfs -cat lab-bundle/kernel.img "$dtb" > "kernel/$dtb"
+          printf '%s  %s\n' 288244400afa9e9fb513bcbfa81bf1b4352e79c259d62c7dd55f79f7d0f47cb7 "kernel/$dtb" | sha256sum -c -
+          fdtput -t s "kernel/$dtb" / fastrhino,slot-dtb-test r68s-18.5
+          test "$(fdtget "kernel/$dtb" / fastrhino,slot-dtb-test)" = r68s-18.5
+          mksquashfs kernel candidate-kernel.img -comp lzo -b 131072 -all-root -noappend -no-progress
+          test "$(stat -c %s candidate-kernel.img)" -le "$((24 * 1024 * 1024))"
+          mv candidate-kernel.img bundle/kernel.img
+          mkdir output
+          rauc --cert="$sign_dir/cert.pem" --key="$sign_dir/key.pem" bundle bundle output/haos_r68s-18.5.raucb
+          info=$(rauc --keyring="$sign_dir/cert.pem" info --output-format=shell output/haos_r68s-18.5.raucb)
+          grep -Fxq "RAUC_MF_VERSION='18.5'" <<< "$info"
+          grep -Fxq "RAUC_MF_COMPATIBLE='haos-r68s'" <<< "$info"
+          grep -Fxq "RAUC_MF_IMAGES='2'" <<< "$info"
+          classes=$(sed -n 's/^RAUC_IMAGE_CLASS_[0-9]*=//p' <<< "$info" | sort)
+          test "$classes" = $'\x27kernel\x27\n\x27rootfs\x27'
+          unsquashfs -cat output/haos_r68s-18.5.raucb rootfs.img | cmp - bundle/rootfs.img
+          unsquashfs -cat output/haos_r68s-18.5.raucb kernel.img | cmp - bundle/kernel.img
+          cp lab/boot.scr output/
+          (cd kernel && sha256sum "$dtb") > output/R68S-SLOT-DTB-SHA256
+      - name: 保存独立 DTB 验收包
+        uses: actions/upload-artifact@v4
+        with:
+          name: R68S-18.5-SLOT-DTB-LAB-DO-NOT-PUBLISH
+          path: output/*
+          if-no-files-found: error
+          retention-days: 7
