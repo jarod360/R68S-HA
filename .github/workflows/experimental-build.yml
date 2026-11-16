@@ -92,7 +92,7 @@ jobs:
       - name: Validate U-Boot patch syntax before long builds
         run: |
           git apply --numstat patches/uboot/0001-r68s-add-u-boot-dtsi.patch
-          git apply --numstat patches/linux/0001-r68s-enable-hardware-watchdog.patch
+          git apply --numstat patches/linux/*.patch
 
       - name: Apply R68S board integration
         env:
@@ -130,7 +130,7 @@ jobs:
         continue-on-error: true
         with:
           path: /mnt/cache/cc
-          key: ${{ runner.os }}-r68s-cc-${{ env.HAOS_SHA }}-${{ hashFiles('board/r68s/**', 'patches/**', 'scripts/prepare-haos.sh', 'haos/buildroot-external/configs/odroid_m1_defconfig', 'haos/buildroot-external/kernel/v6.18.y/**', 'haos/buildroot-external/bootloader/**') }}
+          key: ${{ runner.os }}-r68s-cc-${{ env.HAOS_SHA }}-${{ hashFiles('board/r68s/**', 'patches/**', 'scripts/prepare-haos.sh', 'haos/buildroot-external/configs/odroid_m1_defconfig', 'haos/buildroot-external/kernel/**', 'haos/buildroot-external/bootloader/**') }}
           restore-keys: |
             ${{ runner.os }}-r68s-cc-${{ env.HAOS_SHA }}-
             ${{ runner.os }}-r68s-cc-
@@ -193,6 +193,13 @@ jobs:
             -v "$PWD/haos:/build" -v "/mnt/cache:/cache" -v "/mnt/output:/build/output" \
             haos-builder:r68s make r68s-config
 
+      - name: Apply Linux and R68S device tree patches before compiling
+        run: |
+          docker run --rm --privileged \
+            -e BUILDER_UID="$(id -u)" -e BUILDER_GID="$(id -g)" \
+            -v "$PWD/haos:/build" -v "/mnt/cache:/cache" -v "/mnt/output:/build/output" \
+            haos-builder:r68s make linux-patch
+
       - name: Compile experimental image
         id: compile
         run: |
@@ -227,7 +234,7 @@ jobs:
         continue-on-error: true
         with:
           path: /mnt/cache/cc
-          key: ${{ runner.os }}-r68s-cc-${{ env.HAOS_SHA }}-${{ hashFiles('board/r68s/**', 'patches/**', 'scripts/prepare-haos.sh', 'haos/buildroot-external/configs/odroid_m1_defconfig', 'haos/buildroot-external/kernel/v6.18.y/**', 'haos/buildroot-external/bootloader/**') }}
+          key: ${{ runner.os }}-r68s-cc-${{ env.HAOS_SHA }}-${{ hashFiles('board/r68s/**', 'patches/**', 'scripts/prepare-haos.sh', 'haos/buildroot-external/configs/odroid_m1_defconfig', 'haos/buildroot-external/kernel/**', 'haos/buildroot-external/bootloader/**') }}
 
       - name: Validate output presence and SHA256
         run: |
