@@ -65,12 +65,21 @@ jobs:
           mv candidate-kernel.img bundle/kernel.img
           mkdir output
           rauc --cert="$sign_dir/cert.pem" --key="$sign_dir/key.pem" bundle bundle output/haos_r68s-18.5.raucb
-          info=$(rauc --keyring="$sign_dir/cert.pem" info --output-format=shell output/haos_r68s-18.5.raucb)
-          grep -Fxq "RAUC_MF_VERSION='18.5'" <<< "$info"
-          grep -Fxq "RAUC_MF_COMPATIBLE='haos-r68s'" <<< "$info"
-          grep -Fxq "RAUC_MF_IMAGES='2'" <<< "$info"
-          classes=$(sed -n 's/^RAUC_IMAGE_CLASS_[0-9]*=//p' <<< "$info" | sort)
-          test "$classes" = $'\x27kernel\x27\n\x27rootfs\x27'
+          rauc --keyring="$sign_dir/cert.pem" info --output-format=shell output/haos_r68s-18.5.raucb > bundle-info
+          python3 - <<'PY'
+          from pathlib import Path
+          import shlex
+
+          fields = dict(line.split("=", 1) for line in Path("bundle-info").read_text().splitlines() if line)
+          info = {key: shlex.split(value) for key, value in fields.items()}
+          expected = {"RAUC_MF_VERSION": ["18.5"], "RAUC_MF_COMPATIBLE": ["haos-r68s"], "RAUC_MF_IMAGES": ["2"]}
+          for key, value in expected.items():
+              if info.get(key) != value:
+                  raise SystemExit(f"Unexpected {key}: {info.get(key)!r}")
+          classes = {value[0] for key, value in info.items() if key.startswith("RAUC_IMAGE_CLASS_")}
+          if classes != {"kernel", "rootfs"}:
+              raise SystemExit(f"Unexpected slot classes: {classes!r}")
+          PY
           unsquashfs -cat output/haos_r68s-18.5.raucb rootfs.img | cmp - bundle/rootfs.img
           unsquashfs -cat output/haos_r68s-18.5.raucb kernel.img | cmp - bundle/kernel.img
           cp lab/boot.scr output/
