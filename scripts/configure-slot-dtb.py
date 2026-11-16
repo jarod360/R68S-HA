@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare the opt-in R68S kernel-slot device tree experiment."""
+"""Package the R68S device tree in each kernel slot."""
 
 from pathlib import Path
 import sys

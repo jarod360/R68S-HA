@@ -8,7 +8,7 @@
 
 应用从本仓库的 GitHub Latest Release 检查 R68S OS 版本。点击「检查更新」，找到更高版本后点击「安装最新版」，等待安装完成，再从 HA 系统页面重启。Core、Supervisor 和其他应用继续从 Home Assistant 自己的渠道更新。
 
-升级前后可以通过局域网 SSH 验收，无需拆机。共享设备树有变化时，构建会拦截签名 OTA 产物。 [SSH 远程验收](docs/HANDOFF.md#ssh-远程验收) · [共享设备树与大版本](docs/UPDATE-STRATEGY.md#共享设备树与大版本)
+正式构建将内核和对应的 DTB 打包到同一个 A/B 槽；升级和回退各自使用该槽的一对文件。旧机需要一次性迁移启动脚本。升级前后可以通过局域网 SSH 验收。 [SSH 远程验收](docs/HANDOFF.md#ssh-远程验收) · [旧机迁移](docs/UPDATE-STRATEGY.md#共享设备树与大版本)
 
 从 dev3 OTA 到 dev4 后，若侧栏仍显示旧名称，请重新加载应用商店，并在本地应用详情更新到 1.1.0。dev3 签名 OTA、重启及更新应用后台请求已经实机验证，dev4 网页升级待实机验收。
 
@@ -75,7 +75,7 @@ bash R68S-HA/scripts/prepare-haos.sh haos
 
 1. 选定官方稳定 tag，解析为完整的 40 位提交 SHA。在 Actions 手动运行 `R68S experimental HAOS build`，填入 `haos_sha`，启用 `require_ota`。默认分支上的定时任务也会检查官方稳定版并生成候选产物。 [构建工作流](https://github.com/jarod360/R68S-HA/actions/workflows/experimental-build.yml)
 2. 如果上游目录、ODROID-M1 配置或镜像模板变更，先对比上一次已通过实测的 HAOS 提交。调整 `scripts/prepare-haos.sh` 中的配置匹配和板级文件复制，按需要更新 `board/r68s/`、`patches/linux/`、`patches/uboot/`。如果 RAUC 模板变更，同步修改 `scripts/configure-safe-ota.py` 和产物校验。
-3. 编译后核对 R68S 设备树、GPT/FIT、签名和 A/B 槽内容。用旧版实机验证 OTA、重启、HA 数据和回退。如果设备树校验不同，普通 OTA 会拒绝安装。涉及 U-Boot 或共享启动区的变更，另行验收整盘镜像和恢复路径。
+3. 编译后核对 R68S 槽内设备树、GPT/FIT、签名和 A/B 槽内容。用旧版实机验证 OTA、重启、HA 数据和回退。涉及 U-Boot 或共享启动区的变更，另行验收整盘镜像和恢复路径。
 4. 定时构建通过后，GitHub 自动创建 Release 草稿并上传签名 OTA 包和设备树校验文件。实机通过后，在 GitHub 将草稿发布为 **Latest Release**，HA 的「系统更新」即可检查到新版。 [发布 OTA 步骤](docs/UPDATE-STRATEGY.md#手动发布-ota) · [验收清单](docs/UPDATE-STRATEGY.md#验证条件)
 
 ## 使用限制

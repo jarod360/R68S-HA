@@ -24,10 +24,6 @@ on:
         description: '开发版后缀（可选，例如 dev4；正式版留空）'
         type: string
         required: false
-      slot_dtb:
-        description: '构建 A/B 槽独立设备树实验镜像（仅用于实机验收）'
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -101,7 +97,6 @@ jobs:
       - name: Apply R68S board integration
         env:
           R68S_DEV_REVISION: ${{ inputs.development_revision }}
-          R68S_SLOT_DTB: ${{ inputs.slot_dtb && '1' || '0' }}
         run: |
           set -euo pipefail
           bash scripts/prepare-haos.sh haos "$HAOS_SHA"
@@ -263,17 +258,17 @@ jobs:
               /mnt/output/target/etc/rauc/system.conf \
               /workspace/rel-ca-xsign-oldroot.cert.pem
           python3 scripts/check-image-gpt.py "${images[0]}"
-          if [ "${{ inputs.slot_dtb && '1' || '0' }}" = 1 ]; then
-            test -s /mnt/output/images/boot.scr
-            docker run --rm --volume "/mnt/output:/mnt/output:ro" \
-              --entrypoint bash haos-builder:r68s -o pipefail -c '
-                /mnt/output/host/bin/unsquashfs -cat /mnt/output/images/kernel.img rk3568-fastrhino-r68s.dtb |
-                  cmp - /mnt/output/images/rk3568-fastrhino-r68s.dtb
-              '
-          fi
+          test -s /mnt/output/images/boot.scr
+          docker run --rm --volume "/mnt/output:/mnt/output:ro" \
+            --entrypoint bash haos-builder:r68s -e -o pipefail -c '
+              /mnt/output/host/bin/unsquashfs -cat "$1" kernel.img |
+                cmp - /mnt/output/images/kernel.img
+              /mnt/output/host/bin/unsquashfs -cat /mnt/output/images/kernel.img rk3568-fastrhino-r68s.dtb |
+                cmp - /mnt/output/images/rk3568-fastrhino-r68s.dtb
+            ' verify-slot-dtb "${bundles[0]}"
           sha256sum "${images[0]}" | tee /mnt/output/images/SHA256SUMS-R68S-UNVERIFIED
-          # Existing installations keep their shared DTB during OTA.
-          # Record the candidate DTB so it can be compared before deployment.
+          # The slot DTB hash also lets legacy installers check the shared DTB
+          # before the one-time boot script migration.
           (
             cd /mnt/output/images
             sha256sum rk3568-fastrhino-r68s.dtb > R68S-DTB-SHA256
@@ -288,39 +283,19 @@ jobs:
             /mnt/output/images/haos_r68s-*.img.xz
             /mnt/output/images/SHA256SUMS-R68S-UNVERIFIED
             /mnt/output/images/R68S-DTB-SHA256
+            /mnt/output/images/boot.scr
             /mnt/output/ccache-stats.txt
           if-no-files-found: error
           retention-days: 7
 
-      - name: Require the verified shared R68S device tree for OTA
-        if: env.OTA_SIGNING_READY == 'true' && !inputs.slot_dtb
-        run: |
-          if ! cmp -s board/r68s/verified-shared-dtb.sha256 /mnt/output/images/R68S-DTB-SHA256; then
-            echo "::error::R68S shared DTB changed. Signed OTA artifact withheld; the full image remains available for hardware testing."
-            diff -u board/r68s/verified-shared-dtb.sha256 /mnt/output/images/R68S-DTB-SHA256 || true
-            exit 1
-          fi
-
       - name: Upload R68S-only signed OTA bundle
-        if: env.OTA_SIGNING_READY == 'true' && !inputs.slot_dtb
+        if: env.OTA_SIGNING_READY == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: R68S-HAOS-SIGNED-OTA-UNVERIFIED
           path: |
             /mnt/output/images/haos_r68s-*.raucb
             /mnt/output/images/R68S-DTB-SHA256
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Upload slot DTB lab bundle
-        if: env.OTA_SIGNING_READY == 'true' && inputs.slot_dtb
-        uses: actions/upload-artifact@v4
-        with:
-          name: R68S-SLOT-DTB-LAB-DO-NOT-PUBLISH
-          path: |
-            /mnt/output/images/haos_r68s-*.raucb
-            /mnt/output/images/R68S-DTB-SHA256
-            /mnt/output/images/boot.scr
           if-no-files-found: error
           retention-days: 7
 

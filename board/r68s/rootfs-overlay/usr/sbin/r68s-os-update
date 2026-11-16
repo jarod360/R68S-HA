@@ -38,12 +38,16 @@ download() {
         --proto-redir '=https' --output "$work/$1" "$base/$1"
 }
 
-download R68S-DTB-SHA256
-expected=$(cut -d ' ' -f 1 "$work/R68S-DTB-SHA256")
-actual=$(sha256sum "$dtb")
-if [ "$expected" != "${actual%% *}" ]; then
-    echo 'The release DTB differs from the installed shared DTB.' >&2
-    exit 1
+# The boot marker is set by U-Boot only after selecting a slot-local DTB.
+# Legacy boots still depend on the shared copy and must match it.
+if ! grep -Eq '(^| )r68s\.slot_dtb=1( |$)' /proc/cmdline; then
+    download R68S-DTB-SHA256
+    expected=$(cut -d ' ' -f 1 "$work/R68S-DTB-SHA256")
+    actual=$(sha256sum "$dtb")
+    if [ "$expected" != "${actual%% *}" ]; then
+        echo 'The release DTB differs from the installed shared DTB. Migrate the boot script first.' >&2
+        exit 1
+    fi
 fi
 
 bundle="haos_r68s-$version.raucb"

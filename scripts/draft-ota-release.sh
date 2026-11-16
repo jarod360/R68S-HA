@@ -8,7 +8,8 @@ tag="r68s-$HAOS_VERSION"
 bundle="haos_r68s-$HAOS_VERSION.raucb"
 dtb=R68S-DTB-SHA256
 test -s "$assets_dir/$bundle"
-cmp board/r68s/verified-shared-dtb.sha256 "$assets_dir/$dtb"
+[[ $(wc -l < "$assets_dir/$dtb") -eq 1 ]]
+grep -Eq '^[0-9a-f]{64}  rk3568-fastrhino-r68s\.dtb$' "$assets_dir/$dtb"
 
 endpoint="repos/$GITHUB_REPOSITORY/releases"
 # The list endpoint includes drafts for the release job's write token.
@@ -28,7 +29,7 @@ Home Assistant OS $HAOS_VERSION 的 R68S 签名 OTA 候选包。
 - 官方 HAOS 源码：$HAOS_SHA
 - R68S 适配提交：$GITHUB_SHA
 - 构建记录：$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
-- 已通过签名、机型、A/B 分区和共享设备树检查。发布为 Latest 前请完成实机验收。
+- 已通过签名、机型、A/B 分区和槽内 DTB 检查。已迁移设备从内核槽加载对应的 DTB。发布为 Latest 前请完成实机验收。
 EOF
 )
   release=$(gh api --method POST "$endpoint" -f tag_name="$tag" \
